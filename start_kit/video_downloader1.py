@@ -77,7 +77,7 @@ def download_nonyt_videos(indexfile, saveto='raw_videos'):
     if not os.path.exists(saveto):
         os.mkdir(saveto)
 
-    for entry in tqdm(content):
+    for entry in tqdm(content[::-1]):
         gloss = entry['gloss']
         instances = entry['instances']
 
@@ -116,7 +116,7 @@ def download_yt_videos(indexfile, saveto='raw_videos'):
         gloss = entry['gloss']
         instances = entry['instances']
 
-        for inst in tqdm(instances):
+        for inst in tqdm(instances[::-1]):
             video_url = inst['url']
             video_id = inst['video_id']
 
