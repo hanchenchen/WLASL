@@ -7,7 +7,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import Variable
 from torch.optim.lr_scheduler import StepLR, MultiStepLR
-
+import wandb
 from torchvision import transforms
 import videotransforms
 
@@ -35,7 +35,15 @@ np.random.seed(0)
 
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
-
+wandb.init(
+    name="1017-i3d",
+    project="islr",
+    entity="hanchenchen",
+    config=args,
+    id=wandb.util.generate_id(),
+    # group=_config.work_dir.split('/')[-4],
+    job_type='asl100',
+)
 
 def run(configs,
         mode='rgb',
@@ -166,6 +174,13 @@ def run(configs,
                                                                                                                  tot_cls_loss / (10 * num_steps_per_update),
                                                                                                                  tot_loss / 10,
                                                                                                                  acc))
+                        wandb.log({
+                            "Epoch": epoch,
+                            f"{phase}/Loc Loss": tot_loc_loss / (10 * num_steps_per_update),
+                            f"{phase}/Cls Loss": tot_cls_loss / (10 * num_steps_per_update),
+                            f"{phase}/Tot Loss": tot_loss / 10,
+                            f"{phase}/Accu": acc,
+                        })
                         tot_loss = tot_loc_loss = tot_cls_loss = 0.
             if phase == 'test':
                 val_score = float(np.trace(confusion_matrix)) / np.sum(confusion_matrix)
@@ -185,6 +200,13 @@ def run(configs,
                                                                                                               ))
 
                 scheduler.step(tot_loss * num_steps_per_update / num_iter)
+                wandb.log({
+                    "Epoch": epoch,
+                    f"{phase}/Loc Loss": tot_loc_loss / num_iter,
+                    f"{phase}/Cls Loss": tot_cls_loss / num_iter,
+                    f"{phase}/Tot Loss": (tot_loss * num_steps_per_update) / num_iter,
+                    f"{phase}/Accu": val_score,
+                })
 
 
 if __name__ == '__main__':
