@@ -7,7 +7,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import Variable
 from torch.optim.lr_scheduler import StepLR, MultiStepLR
-
+import wandb
 from torchvision import transforms
 import videotransforms
 
@@ -37,7 +37,15 @@ np.random.seed(0)
 
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
-
+wandb.init(
+    name="1017-video-swin+tr",
+    project="islr",
+    entity="hanchenchen",
+    config=args,
+    id=wandb.util.generate_id(),
+    # group=_config.work_dir.split('/')[-4],
+    # job_type=_config.work_dir.split("/")[-3],
+)
 
 def run(configs,
         mode='rgb',
@@ -87,7 +95,10 @@ def run(configs,
             patch_norm=True
         )
         video_swin.init_weights()
-        video_swin.swin_head = nn.Linear(37632, dataset.num_classes)
+        video_swin.proj = nn.Linear(37632, 512)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=512, nhead=8, batch_first=True)
+        video_swin.temporal_model = nn.TransformerEncoder(encoder_layer, num_layers=6)
+        video_swin.swin_head = nn.Linear(512, dataset.num_classes)
 
     num_classes = dataset.num_classes
     # video_swin.replace_logits(num_classes)
@@ -149,6 +160,8 @@ def run(configs,
                 x = rearrange(inputs, 'n c d h w -> n c d h w')
                 x = video_swin(x)
                 x = rearrange(x, 'n d h w c -> n d (c h w)')
+                x = video_swin.module.proj(x)
+                x = video_swin.module.temporal_model(x)
                 x = video_swin.module.swin_head(x)
                 x = rearrange(x, 'n d c -> n c d')
 
@@ -192,6 +205,13 @@ def run(configs,
                                                                                                                  tot_loss / 10,
                                                                                                                  acc))
                         tot_loss = tot_loc_loss = tot_cls_loss = 0.
+                        wandb.log({
+                            "Epoch": epoch,
+                            f"{phase}/Loc Loss": tot_loc_loss / (10 * num_steps_per_update),
+                            f"{phase}/Cls Loss": tot_cls_loss / (10 * num_steps_per_update),
+                            f"{phase}/Tot Loss": tot_loss / 10,
+                            f"{phase}/Accu": acc,
+                        })
             if phase == 'test':
                 val_score = float(np.trace(confusion_matrix)) / np.sum(confusion_matrix)
                 if val_score > best_val_score or epoch % 2 == 0:
@@ -210,6 +230,13 @@ def run(configs,
                                                                                                               ))
 
                 scheduler.step(tot_loss * num_steps_per_update / num_iter)
+                wandb.log({
+                    "Epoch": epoch,
+                    f"{phase}/Loc Loss": tot_loc_loss / num_iter,
+                    f"{phase}/Cls Loss": tot_cls_loss / num_iter,
+                    f"{phase}/Tot Loss": (tot_loss * num_steps_per_update) / num_iter,
+                    f"{phase}/Accu": val_score,
+                })
 
 
 if __name__ == '__main__':
