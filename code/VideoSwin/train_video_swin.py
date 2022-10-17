@@ -37,15 +37,6 @@ np.random.seed(0)
 
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
-wandb.init(
-    name="1017-video-swin+tr",
-    project="islr",
-    entity="hanchenchen",
-    config=args,
-    id=wandb.util.generate_id(),
-    # group=_config.work_dir.split('/')[-4],
-    # job_type=_config.work_dir.split("/")[-3],
-)
 
 def run(configs,
         mode='rgb',
@@ -97,8 +88,10 @@ def run(configs,
         video_swin.init_weights()
         video_swin.proj = nn.Linear(37632, 512)
         encoder_layer = nn.TransformerEncoderLayer(d_model=512, nhead=8, batch_first=True)
-        video_swin.temporal_model = nn.TransformerEncoder(encoder_layer, num_layers=6)
+        video_swin.temporal_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
         video_swin.swin_head = nn.Linear(512, dataset.num_classes)
+        video_swin.pos_emb = nn.Parameter(torch.randn(1, 16, 512))
+        video_swin.scale = nn.Parameter(torch.randn(1))
 
     num_classes = dataset.num_classes
     # video_swin.replace_logits(num_classes)
@@ -160,30 +153,15 @@ def run(configs,
                 x = rearrange(inputs, 'n c d h w -> n c d h w')
                 x = video_swin(x)
                 x = rearrange(x, 'n d h w c -> n d (c h w)')
-                x = video_swin.module.proj(x)
+                x = video_swin.module.proj(x) + video_swin.module.pos_emb
                 x = video_swin.module.temporal_model(x)
-                x = video_swin.module.swin_head(x)
-                x = rearrange(x, 'n d c -> n c d')
-
-                # upsample to input size
-                per_frame_logits = F.upsample(x, t, mode='linear')
-
-                # compute localization loss
-                loc_loss = F.binary_cross_entropy_with_logits(per_frame_logits, labels)
-                tot_loc_loss += loc_loss.data.item()
-
-                predictions = torch.max(per_frame_logits, dim=2)[0]
-                gt = torch.max(labels, dim=2)[0]
+                per_frame_logits = video_swin.module.swin_head(x).mean(dim=1)
+                # x = rearrange(x, 'n d c -> n c d')
 
                 # compute classification loss (with max-pooling along time B x C x T)
-                cls_loss = F.binary_cross_entropy_with_logits(torch.max(per_frame_logits, dim=2)[0],
-                                                              torch.max(labels, dim=2)[0])
-                tot_cls_loss += cls_loss.data.item()
+                cls_loss = F.cross_entropy(per_frame_logits*video_swin.module.scale, labels)
 
-                for i in range(per_frame_logits.shape[0]):
-                    confusion_matrix[torch.argmax(gt[i]).item(), torch.argmax(predictions[i]).item()] += 1
-
-                loss = (0.5 * loc_loss + 0.5 * cls_loss) / num_steps_per_update
+                loss = cls_loss / num_steps_per_update
                 tot_loss += loss.data.item()
                 if num_iter == num_steps_per_update // 2:
                     print(epoch, steps, loss.data.item())
@@ -196,19 +174,18 @@ def run(configs,
                     optimizer.zero_grad()
                     # lr_sched.step()
                     if steps % 10 == 0:
-                        acc = float(np.trace(confusion_matrix)) / np.sum(confusion_matrix)
+                        acc = torch.eq(torch.argmax(per_frame_logits, dim=1), labels).float().mean()
+                        print(torch.argmax(per_frame_logits, dim=1), labels)
                         print(
-                            'Epoch {} {} Loc Loss: {:.4f} Cls Loss: {:.4f} Tot Loss: {:.4f} Accu :{:.4f}'.format(epoch,
+                            'Epoch {} {} Tot Loss: {:.4f} Accu :{:.4f}'.format(epoch,
                                                                                                                  phase,
-                                                                                                                 tot_loc_loss / (10 * num_steps_per_update),
-                                                                                                                 tot_cls_loss / (10 * num_steps_per_update),
                                                                                                                  tot_loss / 10,
                                                                                                                  acc))
-                        tot_loss = tot_loc_loss = tot_cls_loss = 0.
+                        tot_loss = 0.
                         wandb.log({
                             "Epoch": epoch,
-                            f"{phase}/Loc Loss": tot_loc_loss / (10 * num_steps_per_update),
-                            f"{phase}/Cls Loss": tot_cls_loss / (10 * num_steps_per_update),
+                            # f"{phase}/Loc Loss": tot_loc_loss / (10 * num_steps_per_update),
+                            # f"{phase}/Cls Loss": tot_cls_loss / (10 * num_steps_per_update),
                             f"{phase}/Tot Loss": tot_loss / 10,
                             f"{phase}/Accu": acc,
                         })
@@ -222,9 +199,7 @@ def run(configs,
                     torch.save(video_swin.module.state_dict(), model_name)
                     print(model_name)
 
-                print('VALIDATION: {} Loc Loss: {:.4f} Cls Loss: {:.4f} Tot Loss: {:.4f} Accu :{:.4f}'.format(phase,
-                                                                                                              tot_loc_loss / num_iter,
-                                                                                                              tot_cls_loss / num_iter,
+                print('VALIDATION: {} Tot Loss: {:.4f} Accu :{:.4f}'.format(phase,
                                                                                                               (tot_loss * num_steps_per_update) / num_iter,
                                                                                                               val_score
                                                                                                               ))
@@ -232,8 +207,6 @@ def run(configs,
                 scheduler.step(tot_loss * num_steps_per_update / num_iter)
                 wandb.log({
                     "Epoch": epoch,
-                    f"{phase}/Loc Loss": tot_loc_loss / num_iter,
-                    f"{phase}/Cls Loss": tot_cls_loss / num_iter,
                     f"{phase}/Tot Loss": (tot_loss * num_steps_per_update) / num_iter,
                     f"{phase}/Accu": val_score,
                 })
@@ -241,16 +214,26 @@ def run(configs,
 
 if __name__ == '__main__':
     # WLASL setting
+    
     mode = 'rgb'
     root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
 
-    save_model = 'checkpoints/'
+    save_model = '1017-02-video-swin+tr-ce-sample-half'
     train_split = 'preprocess/nslt_100.json'
 
-    # weights = 'archived/asl2000/FINAL_nslt_2000_iters=5104_top1=32.48_top5=57.31_top10=66.31.pt'
+    # weights = 'checkpoints/nslt_100_004170_0.010638.pt'
     weights = None
-    config_file = 'configfiles/asl100.ini'
+    config_file = 'archived/asl100/FINAL_nslt_100_iters=896_top1=65.89_top5=84.11_top10=89.92.ini'
 
     configs = Config(config_file)
     print(root, train_split)
-    run(configs=configs, mode=mode, root=root, save_model=save_model, train_split=train_split, weights=weights)
+    wandb.init(
+        name=save_model,
+        project="islr",
+        entity="hanchenchen",
+        config=configs,
+        id=wandb.util.generate_id(),
+        # group=_config.work_dir.split('/')[-4],
+        # job_type=_config.work_dir.split("/")[-3],
+    )
+    run(configs=configs, mode=mode, root=root, save_model=save_model+'/', train_split=train_split, weights=weights)

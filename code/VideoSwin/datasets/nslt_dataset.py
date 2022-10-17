@@ -50,8 +50,13 @@ def load_rgb_frames_from_video(vid_root, vid, start, num, resize=(256, 256)):
     total_frames = vidcap.get(cv2.CAP_PROP_FRAME_COUNT)
 
     vidcap.set(cv2.CAP_PROP_POS_FRAMES, start)
-    for offset in range(min(num, int(total_frames - start))):
-        success, img = vidcap.read()
+    for offset in range(0, min(num, int(total_frames - start)), 2):
+        success, img1 = vidcap.read()
+        success, img2 = vidcap.read()
+        if img2 is not None:
+            img = random.choice([img1, img2])
+        else:
+            img = img1
 
         w, h, c = img.shape
         if w < 226 or h < 226:
@@ -121,11 +126,7 @@ def make_dataset(split_file, split, root, mode, num_classes):
             count_skipping += 1
             continue
 
-        label = np.zeros((num_classes, num_frames), np.float32)
-
-        for l in range(num_frames):
-            c_ = data[vid]['action'][0]
-            label[c_][l] = 1
+        label = data[vid]['action'][0]
 
         if len(vid) == 5:
             dataset.append((vid, label, src, 0, data[vid]['action'][2] - data[vid]['action'][1]))
@@ -180,11 +181,11 @@ class NSLT(data_utl.Dataset):
 
         imgs = load_rgb_frames_from_video(self.root['word'], vid, start_f, total_frames)
 
-        imgs, label = self.pad(imgs, label, total_frames)
+        imgs, label = self.pad(imgs, label, total_frames//2)
 
         imgs = self.transforms(imgs)
 
-        ret_lab = torch.from_numpy(label)
+        ret_lab = torch.tensor(label)
         ret_img = video_to_tensor(imgs)
 
         return ret_img, ret_lab, vid
@@ -209,9 +210,6 @@ class NSLT(data_utl.Dataset):
         else:
             padded_imgs = imgs
 
-        label = label[:, 0]
-        label = np.tile(label, (total_frames, 1)).transpose((1, 0))
-
         return padded_imgs, label
 
     @staticmethod
@@ -233,9 +231,6 @@ class NSLT(data_utl.Dataset):
                     padded_imgs = np.concatenate([imgs, pad2], axis=0)
         else:
             padded_imgs = imgs
-
-        label = label[:, 0]
-        label = np.tile(label, (total_frames, 1)).transpose((1, 0))
 
         return padded_imgs, label
 
