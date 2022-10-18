@@ -181,7 +181,6 @@ def run(configs,
                                                                                                                  phase,
                                                                                                                  tot_loss / 10,
                                                                                                                  acc))
-                        tot_loss = 0.
                         wandb.log({
                             "Epoch": epoch,
                             # f"{phase}/Loc Loss": tot_loc_loss / (10 * num_steps_per_update),
@@ -189,8 +188,10 @@ def run(configs,
                             f"{phase}/Tot Loss": tot_loss / 10,
                             f"{phase}/Accu": acc,
                         })
+                        tot_loss = 0.
             if phase == 'test':
-                val_score = float(np.trace(confusion_matrix)) / np.sum(confusion_matrix)
+                print(torch.argmax(per_frame_logits, dim=1), labels)
+                val_score = torch.eq(torch.argmax(per_frame_logits, dim=1), labels).float().mean()
                 if val_score > best_val_score or epoch % 2 == 0:
                     best_val_score = val_score
                     model_name = save_model + "nslt_" + str(num_classes) + "_" + str(steps).zfill(
@@ -219,6 +220,7 @@ if __name__ == '__main__':
     root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
 
     save_model = '1017-02-video-swin+tr-ce-sample-half'
+    os.mkdir(save_model)
     train_split = 'preprocess/nslt_100.json'
 
     # weights = 'checkpoints/nslt_100_004170_0.010638.pt'

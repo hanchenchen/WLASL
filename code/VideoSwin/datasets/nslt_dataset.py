@@ -114,6 +114,7 @@ def make_dataset(split_file, split, root, mode, num_classes):
 
         video_path = os.path.join(vid_root, vid + '.mp4')
         if not os.path.exists(video_path):
+            count_skipping += 1
             continue
 
         num_frames = int(cv2.VideoCapture(video_path).get(cv2.CAP_PROP_FRAME_COUNT))
