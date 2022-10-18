@@ -86,7 +86,7 @@ def run(configs,
             patch_norm=True
         )
         video_swin.init_weights()
-        video_swin.proj = nn.Linear(37632, 512)
+        video_swin.proj = nn.Linear(768, 512)
         encoder_layer = nn.TransformerEncoderLayer(d_model=512, nhead=8, batch_first=True)
         video_swin.temporal_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
         video_swin.swin_head = nn.Linear(512, dataset.num_classes)
@@ -149,17 +149,28 @@ def run(configs,
                 inputs = inputs.cuda()
                 t = inputs.size(2)
                 labels = labels.cuda()
-
+                # print(152, inputs.shape)
                 x = rearrange(inputs, 'n c d h w -> n c d h w')
+                # print(154, x.shape)
                 x = video_swin(x)
-                x = rearrange(x, 'n d h w c -> n d (c h w)')
+                # print(156, x.shape)
+                x = rearrange(x, 'n d h w c -> n d (h w) c')
+                x = x.mean(dim=2)
+                # print(158, x.shape)
                 x = video_swin.module.proj(x) + video_swin.module.pos_emb
+                # print(160, x.shape)
                 x = video_swin.module.temporal_model(x)
-                per_frame_logits = video_swin.module.swin_head(x).mean(dim=1)
+                # print(162, x.shape)
+                per_frame_logits = video_swin.module.swin_head(x[:, 0, :])
+                # print(164, per_frame_logits.shape)
                 # x = rearrange(x, 'n d c -> n c d')
 
                 # compute classification loss (with max-pooling along time B x C x T)
                 cls_loss = F.cross_entropy(per_frame_logits*video_swin.module.scale, labels)
+
+                pred = torch.argmax(per_frame_logits, dim=1)
+                for i in range(per_frame_logits.shape[0]):
+                    confusion_matrix[labels[i].item(), pred[i].item()] += 1
 
                 loss = cls_loss / num_steps_per_update
                 tot_loss += loss.data.item()
@@ -174,7 +185,7 @@ def run(configs,
                     optimizer.zero_grad()
                     # lr_sched.step()
                     if steps % 10 == 0:
-                        acc = torch.eq(torch.argmax(per_frame_logits, dim=1), labels).float().mean()
+                        acc = float(np.trace(confusion_matrix)) / np.sum(confusion_matrix)
                         print(torch.argmax(per_frame_logits, dim=1), labels)
                         print(
                             'Epoch {} {} Tot Loss: {:.4f} Accu :{:.4f}'.format(epoch,
@@ -187,11 +198,11 @@ def run(configs,
                             # f"{phase}/Cls Loss": tot_cls_loss / (10 * num_steps_per_update),
                             f"{phase}/Tot Loss": tot_loss / 10,
                             f"{phase}/Accu": acc,
+                            f"{phase}/Scale": video_swin.module.scale.item(),
                         })
                         tot_loss = 0.
             if phase == 'test':
-                print(torch.argmax(per_frame_logits, dim=1), labels)
-                val_score = torch.eq(torch.argmax(per_frame_logits, dim=1), labels).float().mean()
+                val_score = float(np.trace(confusion_matrix)) / np.sum(confusion_matrix)
                 if val_score > best_val_score or epoch % 2 == 0:
                     best_val_score = val_score
                     model_name = save_model + "nslt_" + str(num_classes) + "_" + str(steps).zfill(
@@ -210,6 +221,7 @@ def run(configs,
                     "Epoch": epoch,
                     f"{phase}/Tot Loss": (tot_loss * num_steps_per_update) / num_iter,
                     f"{phase}/Accu": val_score,
+                    f"{phase}/Scale": video_swin.module.scale.item(),
                 })
 
 
@@ -219,13 +231,13 @@ if __name__ == '__main__':
     mode = 'rgb'
     root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
 
-    save_model = '1017-02-video-swin+tr-ce-sample-half'
+    save_model = '1018-03-only-first-token-02'
     os.mkdir(save_model)
     train_split = 'preprocess/nslt_100.json'
 
     # weights = 'checkpoints/nslt_100_004170_0.010638.pt'
     weights = None
-    config_file = 'archived/asl100/FINAL_nslt_100_iters=896_top1=65.89_top5=84.11_top10=89.92.ini'
+    config_file = 'configfiles/asl100.ini'
 
     configs = Config(config_file)
     print(root, train_split)
