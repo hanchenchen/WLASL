@@ -6,7 +6,7 @@ import urllib.request
 from multiprocessing.dummy import Pool
 from tqdm import tqdm
 import random
-
+import wget
 import logging
 logging.basicConfig(filename='download_{}.log'.format(int(time.time())), filemode='w', level=logging.DEBUG)
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
@@ -57,13 +57,14 @@ def download_others(url, dirname, video_id):
     if os.path.exists(saveto):
         logging.info('{} exists at {}'.format(video_id, saveto))
         return 
+    print(f'wget {url} -O {saveto}')
+    wget.download(url, saveto)
+    return
     
-    data = request_video(url)
-    save_video(data, saveto)
 
 
 def select_download_method(url):
-    if 'aslpro' in url:
+    if 'aslpro' in url or 'asl' in url:
         return download_aslpro
     elif 'youtube' in url or 'youtu.be' in url:
         return download_youtube
@@ -87,6 +88,9 @@ def download_nonyt_videos(indexfile, saveto='raw_videos'):
             
             logging.info('gloss: {}, video: {}.'.format(gloss, video_id))
 
+            # if 'signingsavvy' in video_url or 'aslsignbank' in video_url or 'elementalaslconcepts' in video_url:
+            #     logging.warning('Skipping signingsavvy or aslsignbank or elementalaslconcepts video {}'.format(video_id))
+            #     continue
             download_method = select_download_method(video_url)    
             
             if download_method == download_youtube:
@@ -145,7 +149,7 @@ if __name__ == '__main__':
     logging.info('Start downloading non-youtube videos.')
     download_nonyt_videos('WLASL_v0.3.json', saveto='/raid_han/sign-dataset/wlasl/raw_videos')
 
-    check_youtube_dl_version()
-    logging.info('Start downloading youtube videos.')
-    download_yt_videos('WLASL_v0.3.json', saveto='/raid_han/sign-dataset/wlasl/raw_videos')
+    # check_youtube_dl_version()
+    # logging.info('Start downloading youtube videos.')
+    # download_yt_videos('WLASL_v0.3.json', saveto='/raid_han/sign-dataset/wlasl/raw_videos')
 

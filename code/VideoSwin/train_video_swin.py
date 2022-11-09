@@ -18,11 +18,13 @@ from pytorch_i3d import InceptionI3d
 from einops import rearrange
 
 # from datasets.nslt_dataset import NSLT as Dataset
-from datasets.nslt_dataset import NSLT as Dataset
+# from datasets.nslt_dataset import NSLT as Dataset
+from datasets.capg_csl_dataset import CAPG_CSL as Dataset
+
 from video_swin_transformer import SwinTransformer3D
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = '3'
+os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-mode', type=str, help='rgb or flow')
@@ -51,11 +53,11 @@ def run(configs,
                                            videotransforms.RandomHorizontalFlip(), ])
     test_transforms = transforms.Compose([videotransforms.CenterCrop(224)])
 
-    dataset = Dataset(train_split, 'train', root, mode, train_transforms)
+    dataset = Dataset('train', root, train_transforms)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=configs.batch_size, shuffle=True, num_workers=0,
                                              pin_memory=True)
 
-    val_dataset = Dataset(train_split, 'test', root, mode, test_transforms)
+    val_dataset = Dataset('test', root, test_transforms)
     val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=configs.batch_size, shuffle=True, num_workers=2,
                                                  pin_memory=False)
 
@@ -229,10 +231,11 @@ if __name__ == '__main__':
     # WLASL setting
     
     mode = 'rgb'
-    root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
+    # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
+    root = {'word': '/raid_han/sign-dataset/capg-csl-resized'}
 
-    save_model = '1018-03-only-first-token-02'
-    os.mkdir(save_model)
+    save_model = '1019-capg-csl-03'
+    os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
     # weights = 'checkpoints/nslt_100_004170_0.010638.pt'

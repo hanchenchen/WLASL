@@ -39,7 +39,15 @@ def save_video(data, saveto):
 
 
 def download_youtube(url, dirname, video_id):
-    raise NotImplementedError("Urllib cannot deal with YouTube links.")
+    saveto = os.path.join(dirname, '{}.mp4'.format(video_id))
+    # if os.path.exists(saveto):
+    #     logging.info('{} exists at {}'.format(video_id, saveto))
+    #     return 
+    print(f'!!! youtube-dl -f mp4 -o {saveto} {url}')
+    exit()
+
+    os.system(f'youtube-dl -f mp4 -o {saveto} {url}')
+    # raise NotImplementedError("Urllib cannot deal with YouTube links.")
 
 
 def download_aslpro(url, dirname, video_id):
@@ -77,7 +85,7 @@ def download_nonyt_videos(indexfile, saveto='raw_videos'):
     if not os.path.exists(saveto):
         os.mkdir(saveto)
 
-    for entry in tqdm(content[::-1]):
+    for entry in tqdm(content[::]):
         gloss = entry['gloss']
         instances = entry['instances']
 
@@ -88,15 +96,18 @@ def download_nonyt_videos(indexfile, saveto='raw_videos'):
             logging.info('gloss: {}, video: {}.'.format(gloss, video_id))
 
             download_method = select_download_method(video_url)    
-            
+            if 'signingsavvy'  in video_url or 'elementalaslconcepts' in video_url:
+                logging.warning('Skipping signingsavvy or elementalaslconcepts video {}'.format(video_id))
+                continue
             if download_method == download_youtube:
                 logging.warning('Skipping YouTube video {}'.format(video_id))
                 continue
 
-            try:
-                download_method(video_url, saveto, video_id)
-            except Exception as e:
-                logging.error('Unsuccessful downloading - video {}'.format(video_id))
+            download_method(video_url, saveto, video_id)
+            # try:
+            #     download_method(video_url, saveto, video_id)
+            # except Exception as e:
+            #     logging.error('Unsuccessful downloading - video {}'.format(video_id))
 
 
 def check_youtube_dl_version():
@@ -112,24 +123,25 @@ def download_yt_videos(indexfile, saveto='raw_videos'):
     if not os.path.exists(saveto):
         os.mkdir(saveto)
     
-    for entry in tqdm(content):
+    for entry in tqdm(content[::1]):
         gloss = entry['gloss']
         instances = entry['instances']
 
-        for inst in tqdm(instances[::-1]):
+        for inst in tqdm(instances):
             video_url = inst['url']
             video_id = inst['video_id']
 
             if 'youtube' not in video_url and 'youtu.be' not in video_url:
                 continue
 
-            if os.path.exists(os.path.join(saveto, video_url[-11:] + '.mp4')) or os.path.exists(os.path.join(saveto, video_url[-11:] + '.mkv')):
+            dirname = os.path.join(saveto, '{}.mp4'.format(video_id))
+            # if os.path.exists(os.path.join(saveto, video_url[-11:] + '.mp4')) or os.path.exists(os.path.join(saveto, video_url[-11:] + '.mkv')):
+            if os.path.exists(dirname):
                 logging.info('YouTube videos {} already exists.'.format(video_url))
                 continue
             else:
-                cmd = "youtube-dl \"{}\" -o \"{}%(id)s.%(ext)s\""
-                cmd = cmd.format(video_url, saveto + os.path.sep)
-
+                cmd = f'youtube-dl -f mp4 -o {dirname} {video_url}'
+                print(cmd)
                 rv = os.system(cmd)
                 
                 if not rv:
@@ -142,8 +154,8 @@ def download_yt_videos(indexfile, saveto='raw_videos'):
     
 
 if __name__ == '__main__':
-    logging.info('Start downloading non-youtube videos.')
-    download_nonyt_videos('WLASL_v0.3.json', saveto='/raid_han/sign-dataset/wlasl/raw_videos')
+    # logging.info('Start downloading non-youtube videos.')
+    # download_nonyt_videos('WLASL_v0.3.json', saveto='/raid_han/sign-dataset/wlasl/raw_videos')
 
     check_youtube_dl_version()
     logging.info('Start downloading youtube videos.')
