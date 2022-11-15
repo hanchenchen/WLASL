@@ -108,11 +108,18 @@ def make_dataset(split, root, num_classes):
         label, signer, record_time, view = path.split('/')[-4:]
         if int(label) > num_classes:
             continue
+        # if split == 'train':
+        #     if view not in ['camera_0', 'camera_1', 'camera_3']:
+        #         continue
+        # else:
+        #     if view not in ['camera_2']:
+        #         continue
+        print(label, signer, record_time, view)
         if split == 'train':
-            if view not in ['camera_0', 'camera_1', 'camera_3']:
+            if signer not in ['liya']:
                 continue
         else:
-            if view not in ['camera_2']:
+            if signer not in ['maodonglai']:
                 continue
         label = int(label)
         dataset.append((label, path))

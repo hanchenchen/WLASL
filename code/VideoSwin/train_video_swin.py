@@ -24,7 +24,7 @@ from datasets.capg_csl_dataset import CAPG_CSL as Dataset
 from video_swin_transformer import SwinTransformer3D
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+os.environ["CUDA_VISIBLE_DEVICES"] = '3'
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-mode', type=str, help='rgb or flow')
@@ -234,7 +234,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/sign-dataset/capg-csl-resized'}
 
-    save_model = '1019-capg-csl-03'
+    save_model = '1109-capg-csl-two-person-03'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
