@@ -97,11 +97,10 @@ def run(configs,
         # video_swin.pos_emb = nn.Parameter(torch.randn(1, 16, 768))
         # video_swin.scale = nn.Parameter(torch.ones(1))
         pose_dim = 274
-        video_swin.pose_proj = nn.Linear(pose_dim, 768)
-        encoder_layer = nn.TransformerEncoderLayer(d_model=768, nhead=8, batch_first=True)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=pose_dim, nhead=2, batch_first=True)
         video_swin.pose_temporal_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
-        video_swin.pose_swin_head = nn.Linear(768, dataset.num_classes)
-        video_swin.pose_pos_emb = nn.Parameter(torch.randn(1, 32, 768))
+        video_swin.pose_swin_head = nn.Linear(pose_dim, dataset.num_classes)
+        video_swin.pose_pos_emb = nn.Parameter(torch.randn(1, 32, pose_dim))
         video_swin.pose_scale = nn.Parameter(torch.ones(1))
 
     num_classes = dataset.num_classes
@@ -172,7 +171,7 @@ def run(configs,
                 inputs = ret_pose.cuda()
                 t = inputs.size(2)
                 labels = labels.cuda()
-                x = video_swin.module.pose_proj(inputs) + video_swin.module.pose_pos_emb
+                x = inputs + video_swin.module.pose_pos_emb
                 x = video_swin.module.pose_temporal_model(x)
                 pose_logits = video_swin.module.pose_swin_head(x[:, 0, :])
 
@@ -262,7 +261,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-resized'}
 
-    save_model = '1118-07-only-pose-dim=232-06'
+    save_model = '1118-08-only-pose-dim=274-07'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
