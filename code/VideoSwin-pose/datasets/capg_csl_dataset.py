@@ -81,22 +81,22 @@ def load_rgb_frames(frame_paths, sampler, kpts_2d, img_norm):
     poses = []
     indexes = sampler({'start_index': 0, 'total_frames': len(frame_paths)})['frame_inds']
     for i in list(indexes):
-        # img = cv2.imread(frame_paths[i])[:, :, [2, 1, 0]]
-        # # img = cv2.cvtColor(img, cv2.COLOR_BAYER_GR2RGB)
-        # # cv2.imwrite('test.jpg', img)
-        # w, h, c = img.shape
-        # if w < 226 or h < 226:
-        #     d = 226. - min(w, h)
-        #     sc = 1 + d / min(w, h)
-        #     img = cv2.resize(img, dsize=(0, 0), fx=sc, fy=sc)
-        # # cv2.imwrite('test.jpg', img)
-        # # img = cv2.resize(img, dsize=(w//4, h//4)) # 1920//4, 1280//4
-        # img = (img / 255.) * 2 - 1
-        # # img = torch.tensor(img).float()
-        # # img = img.permute(2, 1, 0)
-        # # img = img_norm(img)
-        # # img = img.permute(1, 2, 0)
-        # frames.append(np.asarray(img, dtype=np.float32))
+        img = cv2.imread(frame_paths[i])[:, :, [2, 1, 0]]
+        # img = cv2.cvtColor(img, cv2.COLOR_BAYER_GR2RGB)
+        # cv2.imwrite('test.jpg', img)
+        w, h, c = img.shape
+        if w < 226 or h < 226:
+            d = 226. - min(w, h)
+            sc = 1 + d / min(w, h)
+            img = cv2.resize(img, dsize=(0, 0), fx=sc, fy=sc)
+        # cv2.imwrite('test.jpg', img)
+        # img = cv2.resize(img, dsize=(w//4, h//4)) # 1920//4, 1280//4
+        img = (img / 255.) * 2 - 1
+        # img = torch.tensor(img).float()
+        # img = img.permute(2, 1, 0)
+        # img = img_norm(img)
+        # img = img.permute(1, 2, 0)
+        frames.append(np.asarray(img, dtype=np.float32))
 
         label, signer, record_time, view, img_name = frame_paths[i].split('/')[-5:]
         key = f"{label}/{signer}/{record_time}"
@@ -443,12 +443,11 @@ class CAPG_CSL(data_utl.Dataset):
 
         imgs, poses = load_rgb_frames(frame_paths, self.sample_frame, self.kpts_2d, self.img_norm)
 
-        # imgs = self.transforms(imgs)
+        imgs = self.transforms(imgs)
 
         ret_lab = torch.tensor(label)
         ret_pose = torch.stack(poses, dim=0)
-        # ret_img = video_to_tensor(imgs)
-        ret_img = imgs
+        ret_img = video_to_tensor(imgs)
 
         return ret_img, ret_lab, index, ret_pose
 

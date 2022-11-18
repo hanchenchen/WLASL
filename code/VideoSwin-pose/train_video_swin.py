@@ -91,11 +91,11 @@ def run(configs,
             patch_norm=True
         )
         video_swin.init_weights('checkpoints/swin/swin_tiny_patch244_window877_kinetics400_1k.pth')
-        # encoder_layer = nn.TransformerEncoderLayer(d_model=768, nhead=8, batch_first=True)
-        # video_swin.temporal_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
-        # video_swin.swin_head = nn.Linear(768, dataset.num_classes)
-        # video_swin.pos_emb = nn.Parameter(torch.randn(1, 16, 768))
-        # video_swin.scale = nn.Parameter(torch.ones(1))
+        encoder_layer = nn.TransformerEncoderLayer(d_model=768, nhead=8, batch_first=True)
+        video_swin.temporal_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
+        video_swin.swin_head = nn.Linear(768, dataset.num_classes)
+        video_swin.pos_emb = nn.Parameter(torch.randn(1, 16, 768))
+        video_swin.scale = nn.Parameter(torch.ones(1))
         pose_dim = 274
         encoder_layer = nn.TransformerEncoderLayer(d_model=pose_dim, nhead=2, batch_first=True)
         video_swin.pose_temporal_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
@@ -157,17 +157,18 @@ def run(configs,
 
                 # Video 
                 # wrap them in Variable
-                # inputs = inputs.cuda()
-                # t = inputs.size(2)
-                # labels = labels.cuda()
-                # x = rearrange(inputs, 'n c d h w -> n c d h w')
-                # x = video_swin(x)
-                # x = rearrange(x, 'n d h w c -> n d (h w) c')
-                # x = x.mean(dim=2)
-                # x = x + video_swin.module.pos_emb
-                # x = video_swin.module.temporal_model(x)
-                # per_frame_logits = video_swin.module.swin_head(x[:, 0, :])
+                inputs = inputs.cuda()
+                t = inputs.size(2)
+                labels = labels.cuda()
+                x = rearrange(inputs, 'n c d h w -> n c d h w')
+                x = video_swin(x)
+                x = rearrange(x, 'n d h w c -> n d (h w) c')
+                x = x.mean(dim=2)
+                x = x + video_swin.module.pos_emb
+                x = video_swin.module.temporal_model(x)
+                video_logits = video_swin.module.swin_head(x[:, 0, :])
 
+                # Pose
                 inputs = ret_pose.cuda()
                 t = inputs.size(2)
                 labels = labels.cuda()
@@ -176,14 +177,15 @@ def run(configs,
                 pose_logits = video_swin.module.pose_swin_head(x[:, 0, :])
 
                 # compute classification loss (with max-pooling along time B x C x T)
+                video_cls_loss = F.cross_entropy(video_logits*video_swin.module.scale, labels)
                 pose_cls_loss = F.cross_entropy(pose_logits*video_swin.module.pose_scale, labels)
 
-                logits = pose_logits
+                logits = pose_logits + video_logits
                 pred = torch.argmax(logits, dim=1)
                 for i in range(logits.shape[0]):
                     confusion_matrix[labels[i].item(), pred[i].item()] += 1
 
-                loss = pose_cls_loss / num_steps_per_update
+                loss = (pose_cls_loss + video_cls_loss) / num_steps_per_update
                 tot_loss += loss.data.item()
                 if num_iter == num_steps_per_update // 2:
                     print(epoch, steps, loss.data.item())
@@ -216,7 +218,8 @@ def run(configs,
                             # f"{phase}/Cls Loss": tot_cls_loss / (10 * num_steps_per_update),
                             f"{phase}/Tot Loss": tot_loss / 10,
                             f"{phase}/Accu": acc,
-                            f"{phase}/Scale": video_swin.module.pose_scale.item(),
+                            f"{phase}/VideoScale": video_swin.module.scale.item(),
+                            f"{phase}/PoseScale": video_swin.module.pose_scale.item(),
                         })
                         tot_loss = 0.
             if phase == 'test':
@@ -250,7 +253,8 @@ def run(configs,
                     "Epoch": epoch,
                     f"{phase}/Tot Loss": (tot_loss * num_steps_per_update) / num_iter,
                     f"{phase}/Accu": val_score,
-                    f"{phase}/Scale": video_swin.module.pose_scale.item(),
+                    f"{phase}/VideoScale": video_swin.module.scale.item(),
+                    f"{phase}/PoseScale": video_swin.module.pose_scale.item(),
                 })
 
 
@@ -261,7 +265,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-resized'}
 
-    save_model = '1118-08-only-pose-dim=274-07'
+    save_model = '1118-10-debug-cv2-imread_0-09'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
