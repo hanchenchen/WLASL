@@ -91,12 +91,11 @@ def run(configs,
             patch_norm=True
         )
         video_swin.init_weights()
-        video_swin.proj = nn.Linear(768, 512)
-        encoder_layer = nn.TransformerEncoderLayer(d_model=512, nhead=8, batch_first=True)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=768, nhead=8, batch_first=True)
         video_swin.temporal_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
-        video_swin.swin_head = nn.Linear(512, dataset.num_classes)
-        video_swin.pos_emb = nn.Parameter(torch.randn(1, 16, 512))
-        video_swin.scale = nn.Parameter(torch.randn(1))
+        video_swin.swin_head = nn.Linear(768, dataset.num_classes)
+        video_swin.pos_emb = nn.Parameter(torch.randn(1, 16, 768))
+        video_swin.scale = nn.Parameter(torch.ones(1))
 
     num_classes = dataset.num_classes
     # video_swin.replace_logits(num_classes)
@@ -162,7 +161,7 @@ def run(configs,
                 x = rearrange(x, 'n d h w c -> n d (h w) c')
                 x = x.mean(dim=2)
                 # print(158, x.shape)
-                x = video_swin.module.proj(x) + video_swin.module.pos_emb
+                x = x + video_swin.module.pos_emb
                 # print(160, x.shape)
                 x = video_swin.module.temporal_model(x)
                 # print(162, x.shape)
@@ -255,7 +254,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-resized'}
 
-    save_model = '1118-05-pose-filtering-04-capg-csl-two-person-03'
+    save_model = '1118-06-wo-proj-dim=768-05'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
