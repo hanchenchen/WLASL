@@ -18,7 +18,7 @@ from pytorch_i3d import InceptionI3d
 from einops import rearrange
 import datetime
 import time
-
+from glob import glob
 import pytz
 # from datasets.nslt_dataset import NSLT as Dataset
 # from datasets.nslt_dataset import NSLT as Dataset
@@ -201,7 +201,7 @@ def run(configs,
                         tot_loss / 10,
                         acc)
                         print(log)
-                        with open(save_model + 'acc.txt', "a") as f:
+                        with open(save_model + 'acc_train.txt', "a") as f:
                             f.writelines(log)
                             f.writelines("\n")
                         wandb.log({
@@ -217,10 +217,14 @@ def run(configs,
                 val_score = float(np.trace(confusion_matrix)) / np.sum(confusion_matrix)
                 if val_score > best_val_score:
                     best_val_score = val_score
-                    model_name = save_model + "nslt_" + str(num_classes) + "_" + str(steps).zfill(
-                                   6) + '_%3f.pt' % val_score
+                    model_name = save_model + "nslt_" + str(num_classes) + "_" + '_%3f_' % val_score + str(steps).zfill(6) + '.pt'
 
                     torch.save(video_swin.module.state_dict(), model_name)
+                    seq_model_list = glob(save_model + "nslt_*.pt")
+                    seq_model_list = sorted(seq_model_list)
+                    for path in seq_model_list[:-1]:
+                        os.remove(path)
+                        print('Remove:', path)
                     print(model_name)
                 localtime = datetime.datetime.fromtimestamp(
                     int(time.time()), pytz.timezone("Asia/Shanghai")
@@ -231,7 +235,7 @@ def run(configs,
                                                                                                               val_score
                                                                                                               )
                 print(log)
-                with open(save_model + 'acc.txt', "a") as f:
+                with open(save_model + 'acc_val.txt', "a") as f:
                     f.writelines(log)
                     f.writelines("\n")
 
