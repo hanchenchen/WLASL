@@ -10,5 +10,6 @@ code/I3D/archived/
 *.pth
 *.zip
 *.pyc
+*.txt
 wandb/
 archived/
