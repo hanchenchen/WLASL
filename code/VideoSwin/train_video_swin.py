@@ -196,7 +196,7 @@ def run(configs,
                             int(time.time()), pytz.timezone("Asia/Shanghai")
                             ).strftime("%Y-%m-%d %H:%M:%S")
                                  
-                        log = "[ " + localtime + " ] " + 'Epoch {} {} Tot Loss: {:.4f} Accu :{:.4f}'.format(epoch,
+                        log = "[ " + localtime + " ] " + 'Epoch {} Step {} {} Tot Loss: {:.4f} Accu :{:.4f}'.format(epoch, steps,
                         phase,
                         tot_loss / 10,
                         acc)
@@ -215,18 +215,25 @@ def run(configs,
                         tot_loss = 0.
             if phase == 'test':
                 val_score = float(np.trace(confusion_matrix)) / np.sum(confusion_matrix)
-                if val_score > best_val_score or epoch % 2 == 0:
+                if val_score > best_val_score:
                     best_val_score = val_score
                     model_name = save_model + "nslt_" + str(num_classes) + "_" + str(steps).zfill(
                                    6) + '_%3f.pt' % val_score
 
                     torch.save(video_swin.module.state_dict(), model_name)
                     print(model_name)
-
-                print('VALIDATION: {} Tot Loss: {:.4f} Accu :{:.4f}'.format(phase,
+                localtime = datetime.datetime.fromtimestamp(
+                    int(time.time()), pytz.timezone("Asia/Shanghai")
+                    ).strftime("%Y-%m-%d %H:%M:%S")
+                            
+                log = "[ " + localtime + " ] " + 'Epoch {} VALIDATION: {} Tot Loss: {:.4f} Accu :{:.4f}'.format(epoch, phase,
                                                                                                               (tot_loss * num_steps_per_update) / num_iter,
                                                                                                               val_score
-                                                                                                              ))
+                                                                                                              )
+                print(log)
+                with open(save_model + 'acc.txt', "a") as f:
+                    f.writelines(log)
+                    f.writelines("\n")
 
                 scheduler.step(tot_loss * num_steps_per_update / num_iter)
                 wandb.log({
