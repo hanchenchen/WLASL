@@ -16,7 +16,10 @@ import numpy as np
 from configs import Config
 from pytorch_i3d import InceptionI3d
 from einops import rearrange
+import datetime
+import time
 
+import pytz
 # from datasets.nslt_dataset import NSLT as Dataset
 # from datasets.nslt_dataset import NSLT as Dataset
 from datasets.capg_csl_dataset import CAPG_CSL as Dataset
@@ -188,12 +191,19 @@ def run(configs,
                     # lr_sched.step()
                     if steps % 10 == 0:
                         acc = float(np.trace(confusion_matrix)) / np.sum(confusion_matrix)
-                        print(torch.argmax(per_frame_logits, dim=1), labels)
-                        print(
-                            'Epoch {} {} Tot Loss: {:.4f} Accu :{:.4f}'.format(epoch,
-                                                                                                                 phase,
-                                                                                                                 tot_loss / 10,
-                                                                                                                 acc))
+                        # print(torch.argmax(per_frame_logits, dim=1), labels)
+                        localtime = datetime.datetime.fromtimestamp(
+                            int(time.time()), pytz.timezone("Asia/Shanghai")
+                            ).strftime("%Y-%m-%d %H:%M:%S")
+                                 
+                        log = "[ " + localtime + " ] " + 'Epoch {} {} Tot Loss: {:.4f} Accu :{:.4f}'.format(epoch,
+                        phase,
+                        tot_loss / 10,
+                        acc)
+                        print(log)
+                        with open(save_model + 'acc.txt', "a") as f:
+                            f.writelines(log)
+                            f.writelines("\n")
                         wandb.log({
                             "Epoch": epoch,
                             # f"{phase}/Loc Loss": tot_loc_loss / (10 * num_steps_per_update),
@@ -232,9 +242,9 @@ if __name__ == '__main__':
     
     mode = 'rgb'
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
-    root = {'word': '/raid_han/sign-dataset/capg-csl-resized'}
+    root = {'word': '/raid_han/signDataProcess/capg-csl-resized'}
 
-    save_model = '1109-capg-csl-two-person-03'
+    save_model = '1118-05-pose-filtering-04-capg-csl-two-person-03'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 

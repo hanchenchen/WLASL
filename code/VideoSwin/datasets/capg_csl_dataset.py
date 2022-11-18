@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 import torch
 import torch.utils.data as data_utl
+import torchvision.transforms as T
 
 
 def video_to_tensor(pic):
@@ -23,21 +24,78 @@ def video_to_tensor(pic):
     return torch.from_numpy(pic.transpose([3, 0, 1, 2]))
 
 
-def load_rgb_frames(video_path, sampler):
-    frames = []
+def pose_filtering(video_path, kpts_2d):
+
     frame_paths = sorted(glob(f"{video_path}/*.jpg"))
+    
+    label, signer, record_time, view = video_path.split('/')[-4:]
+    key = f"{label}/{signer}/{record_time}"
+
+    start_index = 0
+    img_pose = kpts_2d[key][view]
+    img_list = sorted(list(kpts_2d[key][view].keys()))
+    cur_pose = img_pose[img_list[0]]['pose_keypoints_2d']
+    start_left_wrist_x = cur_pose[4*3]
+    start_left_wrist_y = cur_pose[4*3+1]
+    start_right_wrist_x = cur_pose[7*3]
+    start_right_wrist_y = cur_pose[7*3+1]
+    for img_index in range(1, len(img_list)):
+        cur_pos = img_pose[img_list[img_index]]['pose_keypoints_2d']
+        left_wrist_x = cur_pos[4*3]
+        left_wrist_y = cur_pos[4*3+1]
+        right_wrist_x = cur_pos[7*3]
+        right_wrist_y = cur_pos[7*3+1]
+        x = max(abs(left_wrist_x - start_left_wrist_x), abs(right_wrist_x - start_right_wrist_x))
+        y = max(abs(left_wrist_y - start_left_wrist_y), abs(right_wrist_y - start_right_wrist_y))
+
+        # print(img_list[img_index], 'x', left_wrist_x - start_left_wrist_x, right_wrist_x - start_right_wrist_x)
+        # print(img_list[img_index], 'y', left_wrist_y - start_left_wrist_y, right_wrist_y - start_right_wrist_y)
+        if max(x, y) > 40:
+            start_index = img_index
+            break
+    end_index = len(img_list) - 1
+    cur_pose = img_pose[img_list[end_index]]['pose_keypoints_2d']
+    start_left_wrist_x = cur_pose[4*3]
+    start_left_wrist_y = cur_pose[4*3+1]
+    start_right_wrist_x = cur_pose[7*3]
+    start_right_wrist_y = cur_pose[7*3+1]
+    for img_index in range(end_index, -1, -1):
+        cur_pos = img_pose[img_list[img_index]]['pose_keypoints_2d']
+        left_wrist_x = cur_pos[4*3]
+        left_wrist_y = cur_pos[4*3+1]
+        right_wrist_x = cur_pos[7*3]
+        right_wrist_y = cur_pos[7*3+1]
+        x = max(abs(left_wrist_x - start_left_wrist_x), abs(right_wrist_x - start_right_wrist_x))
+        y = max(abs(left_wrist_y - start_left_wrist_y), abs(right_wrist_y - start_right_wrist_y))
+
+        # print(img_list[img_index], 'x', left_wrist_x - start_left_wrist_x, right_wrist_x - start_right_wrist_x)
+        # print(img_list[img_index], 'y', left_wrist_y - start_left_wrist_y, right_wrist_y - start_right_wrist_y)
+        if max(x, y) > 40:
+            end_index = img_index
+            break
+    print(video_path, start_index, end_index, len(img_list))
+    return frame_paths[start_index:end_index]
+
+def load_rgb_frames(frame_paths, sampler, kpts_2d, img_norm):
+    frames = []
     indexes = sampler({'start_index': 0, 'total_frames': len(frame_paths)})['frame_inds']
     for i in list(indexes):
         img = cv2.imread(frame_paths[i])[:, :, [2, 1, 0]]
         # img = cv2.cvtColor(img, cv2.COLOR_BAYER_GR2RGB)
-        cv2.imwrite('test.jpg', img)
+        # cv2.imwrite('test.jpg', img)
         w, h, c = img.shape
         if w < 226 or h < 226:
             d = 226. - min(w, h)
             sc = 1 + d / min(w, h)
             img = cv2.resize(img, dsize=(0, 0), fx=sc, fy=sc)
+        # cv2.imwrite('test.jpg', img)
+        # img = cv2.resize(img, dsize=(w//4, h//4)) # 1920//4, 1280//4
         img = (img / 255.) * 2 - 1
-        frames.append(img)
+        # img = torch.tensor(img).float()
+        # img = img.permute(2, 1, 0)
+        # img = img_norm(img)
+        # img = img.permute(1, 2, 0)
+        frames.append(np.asarray(img, dtype=np.float32))
     return np.asarray(frames, dtype=np.float32)
 
 
@@ -95,7 +153,7 @@ def load_flow_frames(image_dir, vid, start, num):
     return np.asarray(frames, dtype=np.float32)
 
 
-def make_dataset(split, root, num_classes):
+def make_dataset(split, root, num_classes, kpts_2d):
 
     dataset = []
     vid_root = root['word']
@@ -122,7 +180,8 @@ def make_dataset(split, root, num_classes):
             if signer not in ['maodonglai']:
                 continue
         label = int(label)
-        dataset.append((label, path))
+        
+        dataset.append((label, path, pose_filtering(path, kpts_2d)))
         i += 1
 
     print("Skipped videos: ", count_skipping)
@@ -347,11 +406,17 @@ class CAPG_CSL(data_utl.Dataset):
 
     def __init__(self, split, root, transforms=None, num_classes=21):
         self.num_classes = num_classes
-        self.data = make_dataset(split, root, num_classes=self.num_classes)
         self.transforms = transforms
         self.root = root
         self.total_frames = 32
         self.sample_frame = SampleFrames(clip_len=1, num_clips=self.total_frames, test_mode=split!="train")
+        self.img_norm = T.Normalize(
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225],
+        )
+        with open(root['word']+'/2dkeypoints.json', 'r') as f:
+            self.kpts_2d = json.load(f)
+        self.data = make_dataset(split, root, num_classes=self.num_classes, kpts_2d=self.kpts_2d)
 
     def __getitem__(self, index):
         """
@@ -361,9 +426,9 @@ class CAPG_CSL(data_utl.Dataset):
         Returns:
             tuple: (image, target) where target is class_index of the target class.
         """
-        label, video_path = self.data[index]
+        label, video_path, frame_paths = self.data[index]
 
-        imgs = load_rgb_frames(video_path, self.sample_frame)
+        imgs = load_rgb_frames(frame_paths, self.sample_frame, self.kpts_2d, self.img_norm)
 
         imgs = self.transforms(imgs)
 
