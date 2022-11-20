@@ -112,9 +112,7 @@ class MultiCueModel(nn.Module):
                 frame_len=frame_len,)
 
         if share_hand_model:
-            self.right_hand_model.pos_emb = self.left_hand_model.pos_emb
-            self.right_hand_model.short_term_model = self.left_hand_model.short_term_model
-            self.right_hand_model.long_term_model = self.left_hand_model.long_term_model
+            self.right_hand_model = self.left_hand_model
 
         if 'face' in cue: 
             self.face_model = RGBCueModel(
