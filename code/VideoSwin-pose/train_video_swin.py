@@ -166,8 +166,9 @@ def run(configs,
                             int(time.time()), pytz.timezone("Asia/Shanghai")
                             ).strftime("%Y-%m-%d %H:%M:%S")
                                  
-                        log = "[ " + localtime + " ] " + 'Epoch {} Step {} {} Tot Loss: {:.4f} Accu :{:.4f} {} {}'.format(epoch, steps,
+                        log = "[ " + localtime + " ] " + 'Epoch {} Step {} {} LR: {:.8f}  Tot Loss: {:.4f} Accu :{:.4f} {} {}'.format(epoch, steps,
                         phase,
+                        optimizer.param_groups[0]["lr"],
                         tot_loss / 10,
                         acc, 
                         acc_cue,
@@ -204,7 +205,7 @@ def run(configs,
                     int(time.time()), pytz.timezone("Asia/Shanghai")
                     ).strftime("%Y-%m-%d %H:%M:%S")
                             
-                log = "[ " + localtime + " ] " + 'Epoch {} VALIDATION: {} Tot Loss: {:.4f} Accu :{:.4f} {} {}'.format(epoch, phase,
+                log = "[ " + localtime + " ] " + 'Epoch {} VALIDATION: {} LR: {:.8f} Tot Loss: {:.4f} Accu :{:.4f} {} {}'.format(epoch, phase, optimizer.param_groups[0]["lr"],
                                                                                                               (tot_loss * num_steps_per_update) / num_iter,
                                                                                                               val_score,
                                                                                                               acc_cue,
