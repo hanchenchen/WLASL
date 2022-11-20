@@ -78,10 +78,17 @@ def pose_filtering(video_path, kpts_2d):
 
 def load_rgb_frames(frame_paths, sampler, kpts_2d, img_norm):
     frames = []
+    right_hand = []
+    left_hand = []
+    face = []
     poses = []
     indexes = sampler({'start_index': 0, 'total_frames': len(frame_paths)})['frame_inds']
     for i in list(indexes):
         img = cv2.imread(frame_paths[i])[:, :, [2, 1, 0]]
+        right_hand_img = cv2.imread(frame_paths[i].replace('capg-csl-resized', 'capg-csl-rgb-right-hand'))[:, :, [2, 1, 0]]
+        left_hand_img = cv2.imread(frame_paths[i].replace('capg-csl-resized', 'capg-csl-rgb-left-hand'))[:, :, [2, 1, 0]]
+        face_hand_img = cv2.imread(frame_paths[i].replace('capg-csl-resized', 'capg-csl-rgb-face'))[:, :, [2, 1, 0]]
+        
         # img = cv2.cvtColor(img, cv2.COLOR_BAYER_GR2RGB)
         # cv2.imwrite('test.jpg', img)
         w, h, c = img.shape
@@ -92,11 +99,17 @@ def load_rgb_frames(frame_paths, sampler, kpts_2d, img_norm):
         # cv2.imwrite('test.jpg', img)
         # img = cv2.resize(img, dsize=(w//4, h//4)) # 1920//4, 1280//4
         img = (img / 255.) * 2 - 1
+        right_hand_img = (right_hand_img / 255.) * 2 - 1
+        left_hand_img = (left_hand_img / 255.) * 2 - 1
+        face_hand_img = (face_hand_img / 255.) * 2 - 1
         # img = torch.tensor(img).float()
         # img = img.permute(2, 1, 0)
         # img = img_norm(img)
         # img = img.permute(1, 2, 0)
         frames.append(np.asarray(img, dtype=np.float32))
+        right_hand.append(np.asarray(right_hand_img, dtype=np.float32))
+        left_hand.append(np.asarray(left_hand_img, dtype=np.float32))
+        face.append(np.asarray(face_hand_img, dtype=np.float32))
 
         label, signer, record_time, view, img_name = frame_paths[i].split('/')[-5:]
         key = f"{label}/{signer}/{record_time}"
@@ -109,7 +122,7 @@ def load_rgb_frames(frame_paths, sampler, kpts_2d, img_norm):
         poses.append(
             torch.cat([pose_keypoints_2d,face_keypoints_2d,hand_left_keypoints_2d,hand_right_keypoints_2d], dim=0)/shoudler
         )
-    return np.asarray(frames, dtype=np.float32), poses
+    return np.asarray(frames, dtype=np.float32), np.asarray(right_hand, dtype=np.float32), np.asarray(left_hand, dtype=np.float32), np.asarray(face, dtype=np.float32), poses
 
 
 def load_rgb_frames_from_video(vid_root, vid, start, num, resize=(256, 256)):
@@ -441,15 +454,21 @@ class CAPG_CSL(data_utl.Dataset):
         """
         label, video_path, frame_paths = self.data[index]
 
-        imgs, poses = load_rgb_frames(frame_paths, self.sample_frame, self.kpts_2d, self.img_norm)
+        imgs, right_hand, left_hand, face, poses = load_rgb_frames(frame_paths, self.sample_frame, self.kpts_2d, self.img_norm)
 
         imgs = self.transforms(imgs)
+        right_hand = self.transforms(right_hand)
+        left_hand = self.transforms(left_hand)
+        face = self.transforms(face)
 
         ret_lab = torch.tensor(label)
         ret_pose = torch.stack(poses, dim=0)
         ret_img = video_to_tensor(imgs)
+        right_hand = video_to_tensor(right_hand)
+        left_hand = video_to_tensor(left_hand)
+        face = video_to_tensor(face)
 
-        return ret_img, ret_lab, index, ret_pose
+        return ret_img, ret_lab, index, ret_pose, right_hand, left_hand, face
 
     def __len__(self):
         return len(self.data)

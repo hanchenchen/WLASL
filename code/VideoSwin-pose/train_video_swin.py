@@ -24,7 +24,7 @@ import pytz
 # from datasets.nslt_dataset import NSLT as Dataset
 from datasets.capg_csl_dataset import CAPG_CSL as Dataset
 
-from video_swin_transformer import SwinTransformer3D
+from MultiCueModel import MultiCueModel
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = '2'
@@ -67,55 +67,22 @@ def run(configs,
     dataloaders = {'train': dataloader, 'test': val_dataloader}
     datasets = {'train': dataset, 'test': val_dataset}
 
-    # setup the model
-    if mode == 'flow':
-        video_swin = InceptionI3d(400, in_channels=2)
-        video_swin.load_state_dict(torch.load('weights/flow_imagenet.pt'))
-    else:
-        # video_swin = InceptionI3d(400, in_channels=3)
-        # video_swin.load_state_dict(torch.load('weights/rgb_imagenet.pt'))
-        video_swin = SwinTransformer3D(
-            pretrained='checkpoints/swin/swin_tiny_patch244_window877_kinetics400_1k.pth',
-            pretrained2d=False,
-            patch_size=(2,4,4),
-            embed_dim=96,
-            depths=[2, 2, 6, 2],
-            num_heads=[3, 6, 12, 24],
-            window_size=(8,7,7),
-            mlp_ratio=4.,
-            qkv_bias=True,
-            qk_scale=None,
-            drop_rate=0.,
-            attn_drop_rate=0.,
-            drop_path_rate=0.2,
-            patch_norm=True
-        )
-        video_swin.init_weights('checkpoints/swin/swin_tiny_patch244_window877_kinetics400_1k.pth')
-        encoder_layer = nn.TransformerEncoderLayer(d_model=768, nhead=8, batch_first=True)
-        video_swin.temporal_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
-        video_swin.swin_head = nn.Linear(768, dataset.num_classes)
-        video_swin.pos_emb = nn.Parameter(torch.randn(1, 16, 768))
-        video_swin.scale = nn.Parameter(torch.ones(1))
-        pose_dim = 274
-        encoder_layer = nn.TransformerEncoderLayer(d_model=pose_dim, nhead=2, batch_first=True)
-        video_swin.pose_temporal_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
-        video_swin.pose_swin_head = nn.Linear(pose_dim, dataset.num_classes)
-        video_swin.pose_pos_emb = nn.Parameter(torch.randn(1, 32, pose_dim))
-        video_swin.pose_scale = nn.Parameter(torch.ones(1))
 
     num_classes = dataset.num_classes
-    # video_swin.replace_logits(num_classes)
+    
+    cue = ['full_rgb', 'right_hand', 'left_hand', 'face', 'pose']
+    model = MultiCueModel(cue, num_classes)
 
     if weights:
         print('loading weights {}'.format(weights))
-        video_swin.load_state_dict(torch.load(weights))
+        model.load_state_dict(torch.load(weights))
 
-    video_swin.cuda()
-    video_swin = nn.DataParallel(video_swin)
+    model.cuda()
+    model = nn.DataParallel(model)
 
     lr = configs.init_lr
     weight_decay = configs.adam_weight_decay
-    optimizer = optim.Adam(video_swin.parameters(), lr=lr, weight_decay=weight_decay)
+    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
     num_steps_per_update = configs.update_per_step  # accum gradient
     steps = 0
@@ -134,9 +101,9 @@ def run(configs,
             collected_vids = []
 
             if phase == 'train':
-                video_swin.train(True)
+                model.train(True)
             else:
-                video_swin.train(False)  # Set model to evaluate mode
+                model.train(False)  # Set model to evaluate mode
 
             tot_loss = 0.0
             tot_loc_loss = 0.0
@@ -145,6 +112,7 @@ def run(configs,
             optimizer.zero_grad()
 
             confusion_matrix = np.zeros((num_classes, num_classes), dtype=np.int)
+            confusion_matrix_cue = {key: np.zeros((num_classes, num_classes), dtype=np.int) for key in cue}
             # Iterate over data.
             for data in dataloaders[phase]:
                 num_iter += 1
@@ -152,40 +120,33 @@ def run(configs,
                 if data == -1: # bracewell does not compile opencv with ffmpeg, strange errors occur resulting in no video loaded
                     continue
 
-                # inputs, labels, vid, src = data
-                inputs, labels, vid, ret_pose = data
-
-                # Video 
-                # wrap them in Variable
-                inputs = inputs.cuda()
-                t = inputs.size(2)
+                full_rgb, labels, vid, pose, right_hand, left_hand, face = data
                 labels = labels.cuda()
-                x = rearrange(inputs, 'n c d h w -> n c d h w')
-                x = video_swin(x)
-                x = rearrange(x, 'n d h w c -> n d (h w) c')
-                x = x.mean(dim=2)
-                x = x + video_swin.module.pos_emb
-                x = video_swin.module.temporal_model(x)
-                video_logits = video_swin.module.swin_head(x[:, 0, :])
+                inputs = {
+                    'full_rgb': full_rgb,
+                    'right_hand': right_hand,
+                    'left_hand': left_hand,
+                    'face': face,
+                    'pose': pose,
+                }
+                ret = model(inputs)
 
-                # Pose
-                inputs = ret_pose.cuda()
-                t = inputs.size(2)
-                labels = labels.cuda()
-                x = inputs + video_swin.module.pose_pos_emb
-                x = video_swin.module.pose_temporal_model(x)
-                pose_logits = video_swin.module.pose_swin_head(x[:, 0, :])
+                logits = 0.0
+                loss = 0.0
+                scales = {}
+                for key, value in ret.items():
+                    scales[f"{phase}/Scale/"+key] = value['scale']
+                    loss = loss + F.cross_entropy(value['logits'], labels)
+                    logits = logits + value['logits']
+                    pred = torch.argmax(value['logits'], dim=1)
+                    for i in range(logits.shape[0]):
+                        confusion_matrix_cue[key][labels[i].item(), pred[i].item()] += 1
 
-                # compute classification loss (with max-pooling along time B x C x T)
-                video_cls_loss = F.cross_entropy(video_logits*video_swin.module.scale, labels)
-                pose_cls_loss = F.cross_entropy(pose_logits*video_swin.module.pose_scale, labels)
-
-                logits = pose_logits + video_logits
                 pred = torch.argmax(logits, dim=1)
                 for i in range(logits.shape[0]):
                     confusion_matrix[labels[i].item(), pred[i].item()] += 1
 
-                loss = (pose_cls_loss + video_cls_loss) / num_steps_per_update
+                loss = loss / num_steps_per_update
                 tot_loss += loss.data.item()
                 if num_iter == num_steps_per_update // 2:
                     print(epoch, steps, loss.data.item())
@@ -199,15 +160,18 @@ def run(configs,
                     # lr_sched.step()
                     if steps % 10 == 0:
                         acc = float(np.trace(confusion_matrix)) / np.sum(confusion_matrix)
+                        acc_cue = {f"{phase}/Accu/"+key: float(np.trace(confusion_matrix_cue[key])) / np.sum(confusion_matrix_cue[key]) for key in cue}
                         # print(torch.argmax(logits, dim=1), labels)
                         localtime = datetime.datetime.fromtimestamp(
                             int(time.time()), pytz.timezone("Asia/Shanghai")
                             ).strftime("%Y-%m-%d %H:%M:%S")
                                  
-                        log = "[ " + localtime + " ] " + 'Epoch {} Step {} {} Tot Loss: {:.4f} Accu :{:.4f}'.format(epoch, steps,
+                        log = "[ " + localtime + " ] " + 'Epoch {} Step {} {} Tot Loss: {:.4f} Accu :{:.4f} {} {}'.format(epoch, steps,
                         phase,
                         tot_loss / 10,
-                        acc)
+                        acc, 
+                        acc_cue,
+                        scales)
                         print(log)
                         with open(save_model + 'acc_train.txt', "a") as f:
                             f.writelines(log)
@@ -218,17 +182,18 @@ def run(configs,
                             # f"{phase}/Cls Loss": tot_cls_loss / (10 * num_steps_per_update),
                             f"{phase}/Tot Loss": tot_loss / 10,
                             f"{phase}/Accu": acc,
-                            f"{phase}/VideoScale": video_swin.module.scale.item(),
-                            f"{phase}/PoseScale": video_swin.module.pose_scale.item(),
+                            **acc_cue,
+                            **scales
                         })
                         tot_loss = 0.
             if phase == 'test':
                 val_score = float(np.trace(confusion_matrix)) / np.sum(confusion_matrix)
+                acc_cue = {f"{phase}/Accu/"+key: float(np.trace(confusion_matrix_cue[key])) / np.sum(confusion_matrix_cue[key]) for key in cue}
                 if val_score > best_val_score:
                     best_val_score = val_score
                     model_name = save_model + "nslt_" + str(num_classes) + "_" + '_%3f_' % val_score + str(steps).zfill(6) + '.pt'
 
-                    torch.save(video_swin.module.state_dict(), model_name)
+                    torch.save(model.module.state_dict(), model_name)
                     seq_model_list = glob(save_model + "nslt_*.pt")
                     seq_model_list = sorted(seq_model_list)
                     for path in seq_model_list[:-1]:
@@ -239,9 +204,11 @@ def run(configs,
                     int(time.time()), pytz.timezone("Asia/Shanghai")
                     ).strftime("%Y-%m-%d %H:%M:%S")
                             
-                log = "[ " + localtime + " ] " + 'Epoch {} VALIDATION: {} Tot Loss: {:.4f} Accu :{:.4f}'.format(epoch, phase,
+                log = "[ " + localtime + " ] " + 'Epoch {} VALIDATION: {} Tot Loss: {:.4f} Accu :{:.4f} {} {}'.format(epoch, phase,
                                                                                                               (tot_loss * num_steps_per_update) / num_iter,
-                                                                                                              val_score
+                                                                                                              val_score,
+                                                                                                              acc_cue,
+                                                                                                              scales
                                                                                                               )
                 print(log)
                 with open(save_model + 'acc_val.txt', "a") as f:
@@ -253,8 +220,8 @@ def run(configs,
                     "Epoch": epoch,
                     f"{phase}/Tot Loss": (tot_loss * num_steps_per_update) / num_iter,
                     f"{phase}/Accu": val_score,
-                    f"{phase}/VideoScale": video_swin.module.scale.item(),
-                    f"{phase}/PoseScale": video_swin.module.pose_scale.item(),
+                    **acc_cue,
+                    **scales
                 })
 
 
@@ -265,13 +232,13 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-resized'}
 
-    save_model = '1118-10-debug-cv2-imread_0-09'
+    save_model = '1118-11-multi-cue-10-debug-cv2-imread_0-09'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
     # weights = 'checkpoints/nslt_100_004170_0.010638.pt'
     weights = None
-    config_file = 'configfiles/asl100.ini'
+    config_file = 'configfiles/capg20.ini'
 
     configs = Config(config_file)
     print(root, train_split)
