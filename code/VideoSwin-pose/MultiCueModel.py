@@ -18,6 +18,7 @@ class MultiCueModel(nn.Module):
         self,
         cue,
         num_classes,
+        share_hand_model=True
     ):
         super(MultiCueModel, self).__init__()
         self.cue = cue
@@ -46,8 +47,8 @@ class MultiCueModel(nn.Module):
             self.full_rgb_model.pred_head = nn.Linear(768, num_classes)
             self.full_rgb_model.scale = nn.Parameter(torch.ones(1))
 
-        if 'right_hand' in cue or 'left_hand' in cue: 
-            self.hand_model = SwinTransformer3D(
+        if 'right_hand' in cue: 
+            self.right_hand_model = SwinTransformer3D(
                 pretrained='checkpoints/swin/swin_tiny_patch244_window877_kinetics400_1k.pth',
                 pretrained2d=False,
                 patch_size=(2,4,4),
@@ -63,14 +64,39 @@ class MultiCueModel(nn.Module):
                 drop_path_rate=0.2,
                 patch_norm=True
             )
-            self.hand_model.init_weights('checkpoints/swin/swin_tiny_patch244_window877_kinetics400_1k.pth')
-            self.hand_model.pos_emb = nn.Parameter(torch.randn(1, 16, 768))
+            self.right_hand_model.init_weights('checkpoints/swin/swin_tiny_patch244_window877_kinetics400_1k.pth')
+            self.right_hand_model.pos_emb = nn.Parameter(torch.randn(1, 16, 768))
             encoder_layer = nn.TransformerEncoderLayer(d_model=768, nhead=8, batch_first=True)
-            self.hand_model.temporal_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
-            self.hand_model.pred_head = nn.Linear(768, num_classes)
-            self.hand_model.scale = nn.Parameter(torch.ones(1))
-            self.right_hand_model = self.hand_model
-            self.left_hand_model = self.hand_model
+            self.right_hand_model.temporal_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
+            self.right_hand_model.pred_head = nn.Linear(768, num_classes)
+            self.right_hand_model.scale = nn.Parameter(torch.ones(1))
+
+        if 'left_hand' in cue: 
+            self.left_hand_model = SwinTransformer3D(
+                pretrained='checkpoints/swin/swin_tiny_patch244_window877_kinetics400_1k.pth',
+                pretrained2d=False,
+                patch_size=(2,4,4),
+                embed_dim=96,
+                depths=[2, 2, 6, 2],
+                num_heads=[3, 6, 12, 24],
+                window_size=(8,7,7),
+                mlp_ratio=4.,
+                qkv_bias=True,
+                qk_scale=None,
+                drop_rate=0.,
+                attn_drop_rate=0.,
+                drop_path_rate=0.2,
+                patch_norm=True
+            )
+            self.left_hand_model.init_weights('checkpoints/swin/swin_tiny_patch244_window877_kinetics400_1k.pth')
+            self.left_hand_model.pos_emb = nn.Parameter(torch.randn(1, 16, 768))
+            encoder_layer = nn.TransformerEncoderLayer(d_model=768, nhead=8, batch_first=True)
+            self.left_hand_model.temporal_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
+            self.left_hand_model.pred_head = nn.Linear(768, num_classes)
+            self.left_hand_model.scale = nn.Parameter(torch.ones(1))
+
+        if share_hand_model:
+            self.right_hand_model = self.left_hand_model
 
         if 'face' in cue: 
             self.face_model = SwinTransformer3D(
