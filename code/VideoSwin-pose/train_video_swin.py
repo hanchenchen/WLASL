@@ -71,7 +71,7 @@ def run(configs,
     num_classes = dataset.num_classes
     
     cue = ['full_rgb', 'right_hand', 'left_hand', 'face', 'pose']
-    model = MultiCueModel(cue, num_classes, share_hand_model=False)
+    model = MultiCueModel(cue, num_classes, share_hand_model=True)
 
     if weights:
         print('loading weights {}'.format(weights))
@@ -233,7 +233,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-resized'}
 
-    save_model = '1120-12-wo-sharing-hand-model-11'
+    save_model = '1120-13-wo-sharing-pred-n-scale-11'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 

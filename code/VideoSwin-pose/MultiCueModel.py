@@ -13,6 +13,75 @@ import torch.distributed as dist
 from video_swin_transformer import SwinTransformer3D
 from einops import rearrange
 
+
+class RGBCueModel(nn.Module):
+    def __init__(
+        self,
+        num_classes,
+        hidden_dim,
+        frame_len,
+    ):
+        super(RGBCueModel, self).__init__()
+        self.short_term_model = SwinTransformer3D(
+            pretrained='checkpoints/swin/swin_tiny_patch244_window877_kinetics400_1k.pth',
+            pretrained2d=False,
+            patch_size=(2,4,4),
+            embed_dim=96,
+            depths=[2, 2, 6, 2],
+            num_heads=[3, 6, 12, 24],
+            window_size=(8,7,7),
+            mlp_ratio=4.,
+            qkv_bias=True,
+            qk_scale=None,
+            drop_rate=0.,
+            attn_drop_rate=0.,
+            drop_path_rate=0.2,
+            patch_norm=True
+        )
+        self.short_term_model.init_weights('checkpoints/swin/swin_tiny_patch244_window877_kinetics400_1k.pth')
+        self.pos_emb = nn.Parameter(torch.randn(1, frame_len//2, hidden_dim))
+        encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_dim, nhead=8, batch_first=True)
+        self.long_term_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
+        self.pred_head = nn.Linear(768, num_classes)
+        self.scale = nn.Parameter(torch.ones(1))
+
+    def forward(self, x):
+        x = x.cuda()
+        x = rearrange(x, 'n c d h w -> n c d h w')
+        x = self.short_term_model(x)
+        x = rearrange(x, 'n d h w c -> n d (h w) c')
+        x = x.mean(dim=2)
+        framewise_feats = x
+        x = x + self.pos_emb
+        x = self.long_term_model(x)
+        contextual_feats = x
+        logits = self.pred_head(x[:, 0, :])*self.scale
+        return logits, self.scale.item()
+
+
+class PoseCueModel(nn.Module):
+    def __init__(
+        self,
+        num_classes,
+        hidden_dim,
+        frame_len,
+    ):
+        super(PoseCueModel, self).__init__()
+        self.pos_emb = nn.Parameter(torch.randn(1, frame_len, hidden_dim))
+        encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_dim, nhead=2, batch_first=True)
+        self.long_term_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
+        self.pred_head = nn.Linear(hidden_dim, num_classes)
+        self.scale = nn.Parameter(torch.ones(1))
+
+    def forward(self, x):
+        x = x.cuda()
+        x = x + self.pos_emb
+        x = self.long_term_model(x)
+        contextual_feats = x
+        logits = self.pred_head(x[:, 0, :])*self.scale
+        return logits, self.scale.item()
+
+
 class MultiCueModel(nn.Module):
     def __init__(
         self,
@@ -23,137 +92,50 @@ class MultiCueModel(nn.Module):
         super(MultiCueModel, self).__init__()
         self.cue = cue
         self.num_classes = num_classes
+        frame_len = 32
         if 'full_rgb' in cue: 
-            self.full_rgb_model = SwinTransformer3D(
-                pretrained='checkpoints/swin/swin_tiny_patch244_window877_kinetics400_1k.pth',
-                pretrained2d=False,
-                patch_size=(2,4,4),
-                embed_dim=96,
-                depths=[2, 2, 6, 2],
-                num_heads=[3, 6, 12, 24],
-                window_size=(8,7,7),
-                mlp_ratio=4.,
-                qkv_bias=True,
-                qk_scale=None,
-                drop_rate=0.,
-                attn_drop_rate=0.,
-                drop_path_rate=0.2,
-                patch_norm=True
-            )
-            self.full_rgb_model.init_weights('checkpoints/swin/swin_tiny_patch244_window877_kinetics400_1k.pth')
-            self.full_rgb_model.pos_emb = nn.Parameter(torch.randn(1, 16, 768))
-            encoder_layer = nn.TransformerEncoderLayer(d_model=768, nhead=8, batch_first=True)
-            self.full_rgb_model.temporal_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
-            self.full_rgb_model.pred_head = nn.Linear(768, num_classes)
-            self.full_rgb_model.scale = nn.Parameter(torch.ones(1))
+            self.full_rgb_model = RGBCueModel(
+                num_classes=num_classes,
+                hidden_dim=768,
+                frame_len=frame_len,)
 
         if 'right_hand' in cue: 
-            self.right_hand_model = SwinTransformer3D(
-                pretrained='checkpoints/swin/swin_tiny_patch244_window877_kinetics400_1k.pth',
-                pretrained2d=False,
-                patch_size=(2,4,4),
-                embed_dim=96,
-                depths=[2, 2, 6, 2],
-                num_heads=[3, 6, 12, 24],
-                window_size=(8,7,7),
-                mlp_ratio=4.,
-                qkv_bias=True,
-                qk_scale=None,
-                drop_rate=0.,
-                attn_drop_rate=0.,
-                drop_path_rate=0.2,
-                patch_norm=True
-            )
-            self.right_hand_model.init_weights('checkpoints/swin/swin_tiny_patch244_window877_kinetics400_1k.pth')
-            self.right_hand_model.pos_emb = nn.Parameter(torch.randn(1, 16, 768))
-            encoder_layer = nn.TransformerEncoderLayer(d_model=768, nhead=8, batch_first=True)
-            self.right_hand_model.temporal_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
-            self.right_hand_model.pred_head = nn.Linear(768, num_classes)
-            self.right_hand_model.scale = nn.Parameter(torch.ones(1))
+            self.right_hand_model = RGBCueModel(
+                num_classes=num_classes,
+                hidden_dim=768,
+                frame_len=frame_len,)
 
         if 'left_hand' in cue: 
-            self.left_hand_model = SwinTransformer3D(
-                pretrained='checkpoints/swin/swin_tiny_patch244_window877_kinetics400_1k.pth',
-                pretrained2d=False,
-                patch_size=(2,4,4),
-                embed_dim=96,
-                depths=[2, 2, 6, 2],
-                num_heads=[3, 6, 12, 24],
-                window_size=(8,7,7),
-                mlp_ratio=4.,
-                qkv_bias=True,
-                qk_scale=None,
-                drop_rate=0.,
-                attn_drop_rate=0.,
-                drop_path_rate=0.2,
-                patch_norm=True
-            )
-            self.left_hand_model.init_weights('checkpoints/swin/swin_tiny_patch244_window877_kinetics400_1k.pth')
-            self.left_hand_model.pos_emb = nn.Parameter(torch.randn(1, 16, 768))
-            encoder_layer = nn.TransformerEncoderLayer(d_model=768, nhead=8, batch_first=True)
-            self.left_hand_model.temporal_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
-            self.left_hand_model.pred_head = nn.Linear(768, num_classes)
-            self.left_hand_model.scale = nn.Parameter(torch.ones(1))
+            self.left_hand_model = RGBCueModel(
+                num_classes=num_classes,
+                hidden_dim=768,
+                frame_len=frame_len,)
 
         if share_hand_model:
-            self.right_hand_model = self.left_hand_model
+            self.right_hand_model.pos_emb = self.left_hand_model.pos_emb
+            self.right_hand_model.short_term_model = self.left_hand_model.short_term_model
+            self.right_hand_model.long_term_model = self.left_hand_model.long_term_model
 
         if 'face' in cue: 
-            self.face_model = SwinTransformer3D(
-                pretrained='checkpoints/swin/swin_tiny_patch244_window877_kinetics400_1k.pth',
-                pretrained2d=False,
-                patch_size=(2,4,4),
-                embed_dim=96,
-                depths=[2, 2, 6, 2],
-                num_heads=[3, 6, 12, 24],
-                window_size=(8,7,7),
-                mlp_ratio=4.,
-                qkv_bias=True,
-                qk_scale=None,
-                drop_rate=0.,
-                attn_drop_rate=0.,
-                drop_path_rate=0.2,
-                patch_norm=True
-            )
-            self.face_model.init_weights('checkpoints/swin/swin_tiny_patch244_window877_kinetics400_1k.pth')
-            self.face_model.pos_emb = nn.Parameter(torch.randn(1, 16, 768))
-            encoder_layer = nn.TransformerEncoderLayer(d_model=768, nhead=8, batch_first=True)
-            self.face_model.temporal_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
-            self.face_model.pred_head = nn.Linear(768, num_classes)
-            self.face_model.scale = nn.Parameter(torch.ones(1))
+            self.face_model = RGBCueModel(
+                num_classes=num_classes,
+                hidden_dim=768,
+                frame_len=frame_len,)
 
         if 'pose' in cue: 
             pose_dim = 274
-            encoder_layer = nn.TransformerEncoderLayer(d_model=pose_dim, nhead=2, batch_first=True)
-            self.pose_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
-            self.pose_model.pos_emb = nn.Parameter(torch.randn(1, 32, pose_dim))
-            self.pose_model.pred_head = nn.Linear(pose_dim, num_classes)
-            self.pose_model.scale = nn.Parameter(torch.ones(1))
-
+            self.pose_model = PoseCueModel(
+                num_classes=num_classes,
+                hidden_dim=pose_dim,
+                frame_len=frame_len,)
 
     def forward_cue(self, x, cue):
         if cue != 'pose':
             model = eval(f'self.{cue}_model')
-            # embed frames by resnet
-            x = x.cuda()
-            x = rearrange(x, 'n c d h w -> n c d h w')
-            x = model(x)
-            x = rearrange(x, 'n d h w c -> n d (h w) c')
-            x = x.mean(dim=2)
-            framewise_feats = x
-            x = x + model.pos_emb
-            x = model.temporal_model(x)
-            contextual_feats = x
-            logits = model.pred_head(x[:, 0, :])*model.scale
-            return logits, model.scale.item()
+            return model(x)
         else:
             model = eval(f'self.{cue}_model')
-            x = x.cuda()
-            x = x + model.pos_emb
-            x = model(x)
-            contextual_feats = x
-            logits = model.pred_head(x[:, 0, :])*model.scale
-            return logits, model.scale.item()
+            return model(x)
 
     def forward(self, inputs):
         ret = {}
