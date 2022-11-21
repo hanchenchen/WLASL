@@ -41,7 +41,7 @@ class RGBCueModel(nn.Module):
         self.short_term_model.init_weights('checkpoints/swin/swin_tiny_patch244_window877_kinetics400_1k.pth')
         self.pos_emb = nn.Parameter(torch.randn(1, frame_len//2, hidden_dim))
         encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_dim, nhead=8, batch_first=True)
-        self.long_term_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
+        self.long_term_model = nn.TransformerEncoder(encoder_layer, num_layers=2)
         self.pred_head = nn.Linear(768, num_classes)
         self.scale = nn.Parameter(torch.ones(1))
 
