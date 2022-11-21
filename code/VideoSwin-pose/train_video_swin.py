@@ -1,6 +1,9 @@
 import os
 import argparse
 
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = '0,1'
+device_ids = [0, 1]
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -26,9 +29,7 @@ from datasets.capg_csl_dataset import CAPG_CSL as Dataset
 
 from MultiCueModel import MultiCueModel
 
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = '3'
-torch.cuda.set_device(0)
+# torch.cuda.set_device(0)
 parser = argparse.ArgumentParser()
 parser.add_argument('-mode', type=str, help='rgb or flow')
 parser.add_argument('-save_model', type=str)
@@ -78,7 +79,7 @@ def run(configs,
         model.load_state_dict(torch.load(weights))
 
     model.cuda()
-    model = nn.DataParallel(model)
+    model = nn.DataParallel(model, device_ids=device_ids)
 
     lr = configs.init_lr
     weight_decay = configs.adam_weight_decay
@@ -136,7 +137,7 @@ def run(configs,
                 loss = 0.0
                 scales = {}
                 for key, value in ret.items():
-                    scales[f"{phase}/Scale/"+key] = value['scale']
+                    scales[f"{phase}/Scale/"+key] = value['scale'][0].item()
                     loss = loss + F.cross_entropy(value['logits'], labels)
                     logits = logits + value['logits']
                     pred = torch.argmax(value['logits'], dim=1)
@@ -234,7 +235,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-resized'}
 
-    save_model = '1121-15-RGBCueModel-layer=2-14'
+    save_model = '1121-16-2-gpus-14'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
