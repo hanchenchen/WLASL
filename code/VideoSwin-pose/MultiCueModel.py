@@ -46,7 +46,6 @@ class RGBCueModel(nn.Module):
         self.scale = nn.Parameter(torch.ones(1))
 
     def forward(self, x):
-        x = x.cuda()
         x = rearrange(x, 'n c d h w -> n c d h w')
         x = self.short_term_model(x)
         x = rearrange(x, 'n d h w c -> n d (h w) c')
@@ -74,7 +73,6 @@ class PoseCueModel(nn.Module):
         self.scale = nn.Parameter(torch.ones(1))
 
     def forward(self, x):
-        x = x.cuda()
         x = x + self.pos_emb
         x = self.long_term_model(x)
         contextual_feats = x
@@ -92,6 +90,7 @@ class MultiCueModel(nn.Module):
         super(MultiCueModel, self).__init__()
         self.cue = cue
         self.num_classes = num_classes
+        self.device = torch.device("cuda")
         frame_len = 32
         if 'full_rgb' in cue: 
             self.full_rgb_model = RGBCueModel(
@@ -129,9 +128,11 @@ class MultiCueModel(nn.Module):
 
     def forward_cue(self, x, cue):
         if cue != 'pose':
+            x = x.to(self.device, non_blocking=True)
             model = eval(f'self.{cue}_model')
             return model(x)
         else:
+            x = x.to(self.device, non_blocking=True)
             model = eval(f'self.{cue}_model')
             return model(x)
 

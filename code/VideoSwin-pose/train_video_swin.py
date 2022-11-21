@@ -27,8 +27,8 @@ from datasets.capg_csl_dataset import CAPG_CSL as Dataset
 from MultiCueModel import MultiCueModel
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = '2'
-
+os.environ["CUDA_VISIBLE_DEVICES"] = '3'
+torch.cuda.set_device(0)
 parser = argparse.ArgumentParser()
 parser.add_argument('-mode', type=str, help='rgb or flow')
 parser.add_argument('-save_model', type=str)
@@ -98,6 +98,7 @@ def run(configs,
         epoch += 1
         # Each epoch has a training and validation phase
         for phase in ['train', 'test']:
+            torch.cuda.empty_cache() 
             collected_vids = []
 
             if phase == 'train':
@@ -121,7 +122,7 @@ def run(configs,
                     continue
 
                 full_rgb, labels, vid, pose, right_hand, left_hand, face = data
-                labels = labels.cuda()
+                labels = labels.to(model.module.device, non_blocking=True)
                 inputs = {
                     'full_rgb': full_rgb,
                     'right_hand': right_hand,
