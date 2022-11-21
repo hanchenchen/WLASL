@@ -71,7 +71,7 @@ def run(configs,
 
     num_classes = dataset.num_classes
     
-    cue = ['full_rgb', 'right_hand', 'left_hand', 'face', 'pose', 'optical_flow']
+    cue = ['full_rgb', 'right_hand', 'left_hand', 'face', 'pose']
     model = MultiCueModel(cue, num_classes, share_hand_model=True)
 
     if weights:
@@ -122,7 +122,7 @@ def run(configs,
                 if data == -1: # bracewell does not compile opencv with ffmpeg, strange errors occur resulting in no video loaded
                     continue
 
-                full_rgb, labels, vid, pose, right_hand, left_hand, face, optical_flow = data
+                full_rgb, labels, vid, pose, right_hand, left_hand, face = data
                 labels = labels.to(model.module.device, non_blocking=True)
                 inputs = {
                     'full_rgb': full_rgb,
@@ -130,7 +130,6 @@ def run(configs,
                     'left_hand': left_hand,
                     'face': face,
                     'pose': pose,
-                    'optical_flow': optical_flow,
                 }
                 ret = model(inputs)
 
@@ -236,7 +235,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-resized'}
 
-    save_model = '1121-17-add-optical-flow-16'
+    save_model = '1121-16-2-gpus-14'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
