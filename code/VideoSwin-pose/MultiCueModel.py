@@ -65,7 +65,7 @@ class OpticalFlowCueModel(nn.Module):
         hidden_dim,
         frame_len,
     ):
-        super(RGBCueModel, self).__init__()
+        super(OpticalFlowCueModel, self).__init__()
         self.short_term_model = SwinTransformer3D(
             pretrained2d=False,
             patch_size=(2,4,4),
@@ -168,6 +168,13 @@ class MultiCueModel(nn.Module):
             self.pose_model = PoseCueModel(
                 num_classes=num_classes,
                 hidden_dim=pose_dim,
+                frame_len=frame_len,)
+
+        if 'optical_flow' in cue: 
+            pose_dim = 274
+            self.optical_flow_model = OpticalFlowCueModel(
+                num_classes=num_classes,
+                hidden_dim=768,
                 frame_len=frame_len,)
 
     def forward_cue(self, x, cue):
