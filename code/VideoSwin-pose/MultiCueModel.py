@@ -55,7 +55,7 @@ class RGBCueModel(nn.Module):
         x = self.long_term_model(x)
         contextual_feats = x
         logits = self.pred_head(x[:, 0, :])*self.scale
-        return logits, self.scale
+        return logits, x[:, 0, :], self.scale
 
 
 class OpticalFlowCueModel(nn.Module):
@@ -99,7 +99,7 @@ class OpticalFlowCueModel(nn.Module):
         x = self.long_term_model(x)
         contextual_feats = x
         logits = self.pred_head(x[:, 0, :])*self.scale
-        return logits, self.scale
+        return logits, x[:, 0, :], self.scale
 
 
 class PoseCueModel(nn.Module):
@@ -121,7 +121,7 @@ class PoseCueModel(nn.Module):
         x = self.long_term_model(x)
         contextual_feats = x
         logits = self.pred_head(x[:, 0, :])*self.scale
-        return logits, self.scale
+        return logits, x[:, 0, :], self.scale
 
 
 class MultiCueModel(nn.Module):
@@ -169,6 +169,11 @@ class MultiCueModel(nn.Module):
                 num_classes=num_classes,
                 hidden_dim=pose_dim,
                 frame_len=frame_len,)
+        glo_dim = 768*4 + pose_dim
+        self.pred = nn.Sequential(
+            nn.Linear(glo_dim, glo_dim),
+            nn.Linear(glo_dim, num_classes),
+        )
 
     def forward_cue(self, x, cue):
         if cue != 'pose':
@@ -182,7 +187,15 @@ class MultiCueModel(nn.Module):
 
     def forward(self, inputs):
         ret = {}
+        feats_list = []
         for key, value in inputs.items():
-            logits, scale = self.forward_cue(value, key)
-            ret[key] = {'logits': logits, 'scale': scale}
+            logits, feats, scale = self.forward_cue(value, key)
+            ret[key] = {
+                'logits': logits, 
+                'feats': feats,
+                'scale': scale,
+                }
+            feats_list.append(feats)
+        feats = torch.cat(feats_list, dim=-1)
+        ret['glo_logits'] = self.pred(feats)
         return ret

@@ -2,7 +2,7 @@ import os
 import argparse
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = '0,1'
+os.environ["CUDA_VISIBLE_DEVICES"] = '6,7'
 device_ids = [0]
 import torch
 import torch.nn as nn
@@ -133,18 +133,19 @@ def run(configs,
                 }
                 ret = model(inputs)
 
-                logits = 0.0
                 loss = 0.0
                 scales = {}
-                for key, value in ret.items():
+                for key in cue:
+                    value = ret[key]
                     scales[f"{phase}/Scale/"+key] = value['scale'][0].item()
                     loss = loss + F.cross_entropy(value['logits'], labels)
-                    logits = logits + value['logits']
-                    pred = torch.argmax(value['logits'], dim=1)
+                    logits = value['logits']
+                    pred = torch.argmax(logits, dim=1)
                     for i in range(logits.shape[0]):
                         confusion_matrix_cue[key][labels[i].item(), pred[i].item()] += 1
                 
-                loss = loss + F.cross_entropy(logits, labels)
+                loss = loss + F.cross_entropy(ret['glo_logits'], labels)
+                logits = ret['glo_logits']
                 pred = torch.argmax(logits, dim=1)
                 for i in range(logits.shape[0]):
                     confusion_matrix[labels[i].item(), pred[i].item()] += 1
@@ -236,7 +237,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-resized'}
 
-    save_model = '1121-18-sum-logits-14'
+    save_model = '1122-19-cat-feats-18'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
