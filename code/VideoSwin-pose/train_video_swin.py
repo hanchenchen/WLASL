@@ -138,7 +138,7 @@ def run(configs,
                 for key in cue:
                     value = ret[key]
                     scales[f"{phase}/Scale/"+key] = value['scale'][0].item()
-                    # loss = loss + F.cross_entropy(value['logits'], labels)
+                    loss = loss + F.cross_entropy(value['logits'], labels)
                     logits = value['logits']
                     pred = torch.argmax(logits, dim=1)
                     for i in range(logits.shape[0]):
@@ -237,7 +237,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-resized'}
 
-    save_model = '1122-20-only-glo-loss-19-cat-feats-18'
+    save_model = '1122-19-cat-feats-18'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
