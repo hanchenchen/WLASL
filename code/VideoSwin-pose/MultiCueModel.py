@@ -136,27 +136,23 @@ class MultiCueModel(nn.Module):
         self.num_classes = num_classes
         self.device = torch.device("cuda")
         frame_len = 32
-        self.share_pred_head = nn.Linear(768, num_classes)
         if 'full_rgb' in cue: 
             self.full_rgb_model = RGBCueModel(
                 num_classes=num_classes,
                 hidden_dim=768,
                 frame_len=frame_len,)
-            self.full_rgb_model.pred_head = self.share_pred_head
 
         if 'right_hand' in cue: 
             self.right_hand_model = RGBCueModel(
                 num_classes=num_classes,
                 hidden_dim=768,
                 frame_len=frame_len,)
-            self.right_hand_model.pred_head = self.share_pred_head
 
         if 'left_hand' in cue: 
             self.left_hand_model = RGBCueModel(
                 num_classes=num_classes,
                 hidden_dim=768,
                 frame_len=frame_len,)
-            self.left_hand_model.pred_head = self.share_pred_head
 
         if share_hand_model:
             self.right_hand_model = self.left_hand_model
@@ -166,7 +162,6 @@ class MultiCueModel(nn.Module):
                 num_classes=num_classes,
                 hidden_dim=768,
                 frame_len=frame_len,)
-            self.face_model.pred_head = self.share_pred_head
 
         if 'pose' in cue: 
             pose_dim = 274
@@ -174,10 +169,6 @@ class MultiCueModel(nn.Module):
                 num_classes=num_classes,
                 hidden_dim=pose_dim,
                 frame_len=frame_len,)
-            self.pose_model.pred = nn.Sequential(
-                nn.Linear(pose_dim, 768),
-                self.share_pred_head,
-            )
         glo_dim = 768*4 + pose_dim
         self.pred = nn.Sequential(
             nn.Linear(glo_dim, glo_dim),

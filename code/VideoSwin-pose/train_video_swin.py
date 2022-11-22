@@ -237,7 +237,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-resized'}
 
-    save_model = '1122-21-share-all-mano-pred-head-19-cat-feats-18'
+    save_model = '1122-19-cat-feats-18'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
