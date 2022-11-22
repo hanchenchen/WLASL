@@ -170,10 +170,11 @@ class MultiCueModel(nn.Module):
                 hidden_dim=pose_dim,
                 frame_len=frame_len,)
         glo_dim = 768*4 + pose_dim
-        self.pred = nn.Sequential(
+        self.pred_head = nn.Sequential(
             nn.Linear(glo_dim, glo_dim),
             nn.Linear(glo_dim, num_classes),
         )
+        self.scale = nn.Parameter(torch.ones(1))
 
     def forward_cue(self, x, cue):
         if cue != 'pose':
@@ -197,5 +198,6 @@ class MultiCueModel(nn.Module):
                 }
             feats_list.append(feats)
         feats = torch.cat(feats_list, dim=-1)
-        ret['glo_logits'] = self.pred(feats)
+        ret['glo_logits'] = self.pred_head(feats)*self.scale
+        ret['glo_scale'] = self.scale
         return ret
