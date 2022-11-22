@@ -6,13 +6,12 @@ import os
 import cv2
 import torch
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-src_dire = "/raid_han/signDataProcess/capg-csl-rgb"
-face_dire = "/raid_han/signDataProcess/capg-csl-rgb-face"
-left_hand_dire = "/raid_han/signDataProcess/capg-csl-rgb-left-hand"
-right_hand_dire = "/raid_han/signDataProcess/capg-csl-rgb-right-hand"
-tgt_dire = "/raid_han/signDataProcess/capg-csl-resized"
+src_dire = "/raid_han/signDataProcess/capg-csl-rgb-21-100"
+face_dire = f"{src_dire}/face"
+left_hand_dire = f"{src_dire}/left-hand"
+right_hand_dire = f"{src_dire}/right-hand"
 
-with open(tgt_dire+'/2dkeypoints.json', 'r') as f:
+with open(src_dire+'/2dkeypoints.json', 'r') as f:
     kpts_2d = json.load(f)
 length = 224
 

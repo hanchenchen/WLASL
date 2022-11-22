@@ -5,8 +5,8 @@ from tqdm import tqdm
 import os
 import cv2
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-src_dire = "/raid_han/signDataProcess/capg-csl-rgb"
-tgt_dire = "/raid_han/signDataProcess/capg-csl-resized"
+src_dire = "/raid_han/signDataProcess/capg-csl-rgb-21-100"
+tgt_dire = "/raid_han/signDataProcess/capg-csl-rgb-21-100-resized"
 
 for path in tqdm(glob(f"{src_dire}/*/*/*/*/*.jpg")):
     if '.jpg' not in path:
