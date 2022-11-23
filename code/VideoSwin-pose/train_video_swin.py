@@ -72,6 +72,7 @@ def run(configs,
     num_classes = dataset.num_classes
     
     cue = ['full_rgb', 'right_hand', 'left_hand', 'face', 'pose']
+    supervised_cue = cue + ['multi_cue', 'late_fusion']
     model = MultiCueModel(cue, num_classes, share_hand_model=True)
 
     if weights:
@@ -114,7 +115,7 @@ def run(configs,
             optimizer.zero_grad()
 
             confusion_matrix = np.zeros((num_classes, num_classes), dtype=np.int)
-            confusion_matrix_cue = {key: np.zeros((num_classes, num_classes), dtype=np.int) for key in cue}
+            confusion_matrix_cue = {key: np.zeros((num_classes, num_classes), dtype=np.int) for key in supervised_cue}
             # Iterate over data.
             for data in dataloaders[phase]:
                 num_iter += 1
@@ -135,7 +136,7 @@ def run(configs,
 
                 loss = 0.0
                 scales = {}
-                for key in cue:
+                for key in supervised_cue:
                     value = ret[key]
                     scales[f"{phase}/Scale/"+key] = value['scale'][0].item()
                     loss = loss + F.cross_entropy(value['logits'], labels)
@@ -144,8 +145,7 @@ def run(configs,
                     for i in range(logits.shape[0]):
                         confusion_matrix_cue[key][labels[i].item(), pred[i].item()] += 1
                 
-                loss = loss + F.cross_entropy(ret['glo_logits'], labels)
-                logits = ret['glo_logits']
+                logits = ret['late_fusion']['logits']
                 pred = torch.argmax(logits, dim=1)
                 for i in range(logits.shape[0]):
                     confusion_matrix[labels[i].item(), pred[i].item()] += 1
@@ -164,7 +164,7 @@ def run(configs,
                     # lr_sched.step()
                     if steps % 10 == 0:
                         acc = float(np.trace(confusion_matrix)) / np.sum(confusion_matrix)
-                        acc_cue = {f"{phase}/Accu/"+key: float(np.trace(confusion_matrix_cue[key])) / np.sum(confusion_matrix_cue[key]) for key in cue}
+                        acc_cue = {f"{phase}/Accu/"+key: float(np.trace(confusion_matrix_cue[key])) / np.sum(confusion_matrix_cue[key]) for key in confusion_matrix_cue.keys()}
                         # print(torch.argmax(logits, dim=1), labels)
                         localtime = datetime.datetime.fromtimestamp(
                             int(time.time()), pytz.timezone("Asia/Shanghai")
@@ -193,7 +193,7 @@ def run(configs,
                         tot_loss = 0.
             if phase == 'test':
                 val_score = float(np.trace(confusion_matrix)) / np.sum(confusion_matrix)
-                acc_cue = {f"{phase}/Accu/"+key: float(np.trace(confusion_matrix_cue[key])) / np.sum(confusion_matrix_cue[key]) for key in cue}
+                acc_cue = {f"{phase}/Accu/"+key: float(np.trace(confusion_matrix_cue[key])) / np.sum(confusion_matrix_cue[key]) for key in confusion_matrix_cue.keys()}
                 if val_score > best_val_score:
                     best_val_score = val_score
                     model_name = save_model + "nslt_" + str(num_classes) + "_" + '_%3f_' % val_score + str(steps).zfill(6) + '.pt'
@@ -237,7 +237,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-resized'}
 
-    save_model = '1122-23-cat-framewise-feats-before-glo-longterm-model-22'
+    save_model = '1123-24-cat-multi-cue-n-mano-cue-23'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 

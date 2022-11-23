@@ -53,9 +53,9 @@ class RGBCueModel(nn.Module):
         framewise_feats = x
         x = x + self.pos_emb
         x = self.long_term_model(x)
-        contextual_feats = x
+        contextual_feats = x[:, 0, :]
         logits = self.pred_head(x[:, 0, :])*self.scale
-        return logits, framewise_feats, self.scale
+        return logits, framewise_feats, contextual_feats, self.scale
 
 
 class OpticalFlowCueModel(nn.Module):
@@ -97,9 +97,9 @@ class OpticalFlowCueModel(nn.Module):
         framewise_feats = x
         x = x + self.pos_emb
         x = self.long_term_model(x)
-        contextual_feats = x
+        contextual_feats = x[:, 0, :]
         logits = self.pred_head(x[:, 0, :])*self.scale
-        return logits, framewise_feats, self.scale
+        return logits, framewise_feats, contextual_feats, self.scale
 
 
 class PoseCueModel(nn.Module):
@@ -119,11 +119,11 @@ class PoseCueModel(nn.Module):
     def forward(self, x):
         x = x + self.pos_emb
         x = self.long_term_model(x)
-        contextual_feats = x
+        contextual_feats = x[:, 0, :]
         logits = self.pred_head(x[:, 0, :])*self.scale
         B, N, C = x.shape
         framewise_feats = x.reshape(B, N//2, 2, C)[:, :, 0, :]
-        return logits, framewise_feats, self.scale
+        return logits, framewise_feats, contextual_feats, self.scale
 
 
 class MultiCueModel(nn.Module):
@@ -180,6 +180,13 @@ class MultiCueModel(nn.Module):
             nn.Linear(glo_dim, num_classes),
         )
         self.scale = nn.Parameter(torch.ones(1))
+        
+        glo_dim = glo_dim * 2
+        self.glo_pred_head = nn.Sequential(
+            nn.Linear(glo_dim, glo_dim),
+            nn.Linear(glo_dim, num_classes),
+        )
+        self.glo_scale = nn.Parameter(torch.ones(1))
 
     def forward_cue(self, x, cue):
         if cue != 'pose':
@@ -193,19 +200,30 @@ class MultiCueModel(nn.Module):
 
     def forward(self, inputs):
         ret = {}
-        feats_list = []
+        framewise_feats_list = []
+        contextual_feats_list = []
         for key, value in inputs.items():
-            logits, framewise_feats, scale = self.forward_cue(value, key)
+            logits, framewise_feats, contextual_feats, scale = self.forward_cue(value, key)
             ret[key] = {
                 'logits': logits, 
                 'scale': scale,
                 }
-            feats_list.append(framewise_feats)
-        x = torch.cat(feats_list, dim=-1)
+            framewise_feats_list.append(framewise_feats)
+            contextual_feats_list.append(contextual_feats)
+        x = torch.cat(framewise_feats_list, dim=-1)
         x = x + self.pos_emb
         x = self.long_term_model(x)
-        contextual_feats = x
         logits = self.pred_head(x[:, 0, :])*self.scale
-        ret['glo_logits'] = logits
-        ret['glo_scale'] = self.scale
+        ret['multi_cue'] = {
+            'logits': logits, 
+            'scale': self.scale,
+            }
+
+        contextual_feats_list.append(x[:, 0, :])
+        x = torch.cat(contextual_feats_list, dim=-1)
+        logits = self.glo_pred_head(x)*self.glo_scale
+        ret['late_fusion'] = {
+            'logits': logits, 
+            'scale': self.glo_scale,
+            }
         return ret
