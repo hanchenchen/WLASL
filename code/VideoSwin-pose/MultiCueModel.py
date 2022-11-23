@@ -181,7 +181,7 @@ class MultiCueModel(nn.Module):
         )
         self.scale = nn.Parameter(torch.ones(1))
         
-        glo_dim = glo_dim * 2
+        # glo_dim = glo_dim * 2
         self.glo_pred_head = nn.Sequential(
             nn.Linear(glo_dim, glo_dim),
             nn.Linear(glo_dim, num_classes),
@@ -219,7 +219,7 @@ class MultiCueModel(nn.Module):
             'scale': self.scale,
             }
 
-        contextual_feats_list.append(x[:, 0, :])
+        # contextual_feats_list.append(x[:, 0, :])
         x = torch.cat(contextual_feats_list, dim=-1)
         logits = self.glo_pred_head(x)*self.glo_scale
         ret['late_fusion'] = {
