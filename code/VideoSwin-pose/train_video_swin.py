@@ -60,19 +60,24 @@ def run(configs,
     dataset = Dataset('train', root, train_transforms)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=configs.batch_size, shuffle=True, num_workers=0,
                                              pin_memory=True)
+    print('Train', len(dataset))
+    view_list = ['camera_0', 'camera_1', 'camera_2', 'camera_3']
+    val_dataset = {}
+    val_dataloader = {}
+    for view in view_list:
+        val_dataset[f'test-{view}'] = Dataset('test', root, test_transforms, view_list=[view])
+        val_dataloader[f'test-{view}'] = torch.utils.data.DataLoader(val_dataset[f'test-{view}'] , batch_size=configs.batch_size, shuffle=True, num_workers=2,pin_memory=False)
+        print(f'test-{view}', len(val_dataset[f'test-{view}']))
 
-    val_dataset = Dataset('test', root, test_transforms)
-    val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=configs.batch_size, shuffle=True, num_workers=2,
-                                                 pin_memory=False)
-
-    dataloaders = {'train': dataloader, 'test': val_dataloader}
-    datasets = {'train': dataset, 'test': val_dataset}
-
+    dataloaders = {'train': dataloader, **val_dataloader}
+    datasets = {'train': dataset, **val_dataset}
+    phase_list = dataloaders.keys()
 
     num_classes = dataset.num_classes
     
     cue = ['full_rgb', 'right_hand', 'left_hand', 'face', 'pose']
-    supervised_cue = cue + ['multi_cue', 'late_fusion']
+    # supervised_cue = cue + ['multi_cue', 'late_fusion']
+    supervised_cue = cue + ['late_fusion']
     model = MultiCueModel(cue, num_classes, share_hand_model=True)
 
     if weights:
@@ -92,14 +97,15 @@ def run(configs,
 
     best_val_score = 0
     # train it
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=5, factor=0.3)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', patience=5, factor=0.3)
     while steps < configs.max_steps and epoch < 400:  # for epoch in range(num_epochs):
         print('Step {}/{}'.format(steps, configs.max_steps))
         print('-' * 10)
 
         epoch += 1
+        val_score_dict = {}
         # Each epoch has a training and validation phase
-        for phase in ['train', 'test']:
+        for phase in phase_list:
             torch.cuda.empty_cache() 
             collected_vids = []
 
@@ -183,6 +189,7 @@ def run(configs,
                             f.writelines("\n")
                         wandb.log({
                             "Epoch": epoch,
+                            "Step": steps,
                             # f"{phase}/Loc Loss": tot_loc_loss / (10 * num_steps_per_update),
                             # f"{phase}/Cls Loss": tot_cls_loss / (10 * num_steps_per_update),
                             f"{phase}/Tot Loss": tot_loss / 10,
@@ -191,25 +198,16 @@ def run(configs,
                             **scales
                         })
                         tot_loss = 0.
-            if phase == 'test':
+            if 'test' in phase:
                 val_score = float(np.trace(confusion_matrix)) / np.sum(confusion_matrix)
                 acc_cue = {f"{phase}/Accu/"+key: float(np.trace(confusion_matrix_cue[key])) / np.sum(confusion_matrix_cue[key]) for key in confusion_matrix_cue.keys()}
-                if val_score > best_val_score:
-                    best_val_score = val_score
-                    model_name = save_model + "nslt_" + str(num_classes) + "_" + '_%3f_' % val_score + str(steps).zfill(6) + '.pt'
+                val_score_dict[phase] = val_score
 
-                    torch.save(model.module.state_dict(), model_name)
-                    seq_model_list = glob(save_model + "nslt_*.pt")
-                    seq_model_list = sorted(seq_model_list)
-                    for path in seq_model_list[:-1]:
-                        os.remove(path)
-                        print('Remove:', path)
-                    print(model_name)
                 localtime = datetime.datetime.fromtimestamp(
                     int(time.time()), pytz.timezone("Asia/Shanghai")
                     ).strftime("%Y-%m-%d %H:%M:%S")
                             
-                log = "[ " + localtime + " ] " + 'Epoch {} VALIDATION: {} LR: {:.8f} Tot Loss: {:.4f} Accu :{:.4f} {} {}'.format(epoch, phase, optimizer.param_groups[0]["lr"],
+                log = "[ " + localtime + " ] " + 'Epoch {} Step {} VALIDATION: {} LR: {:.8f} Tot Loss: {:.4f} Accu :{:.4f} {} {}'.format(epoch, steps, phase, optimizer.param_groups[0]["lr"],
                                                                                                               (tot_loss * num_steps_per_update) / num_iter,
                                                                                                               val_score,
                                                                                                               acc_cue,
@@ -219,17 +217,43 @@ def run(configs,
                 with open(save_model + 'acc_val.txt', "a") as f:
                     f.writelines(log)
                     f.writelines("\n")
-
-                scheduler.step(tot_loss * num_steps_per_update / num_iter)
                 wandb.log({
                     "Epoch": epoch,
+                    "Step": steps,
                     f"{phase}/Tot Loss": (tot_loss * num_steps_per_update) / num_iter,
                     f"{phase}/Accu": val_score,
                     **acc_cue,
                     **scales
                 })
 
+        avg_val_score = (val_score_dict['test-camera_0'] + val_score_dict['test-camera_1']) / 2.0
+        avg_test_score = (val_score_dict['test-camera_2'] + val_score_dict['test-camera_3']) / 2.0
+        if avg_val_score >= best_val_score:
+            best_val_score = avg_val_score
+            model_name = f"{save_model}nslt_{str(num_classes)}_{avg_val_score:.3f}_{epoch:05}_{avg_test_score:.3f}.pt"
+            torch.save(model.module.state_dict(), model_name)
+            seq_model_list = glob(save_model + "nslt_*.pt")
+            seq_model_list = sorted(seq_model_list)
+            for path in seq_model_list[:-1]:
+                os.remove(path)
+                print('Remove:', path)
+            print(model_name)
+        scheduler.step(avg_val_score)
 
+        localtime = datetime.datetime.fromtimestamp(
+            int(time.time()), pytz.timezone("Asia/Shanghai")
+            ).strftime("%Y-%m-%d %H:%M:%S")
+                    
+        log = "[ " + localtime + " ] " + 'Epoch {} Step {} VALIDATION: {} '.format(epoch, steps, val_score_dict)
+        print(log)
+        with open(save_model + 'acc_val.txt', "a") as f:
+            f.writelines(log)
+            f.writelines("\n")
+        wandb.log({
+            "Epoch": epoch,
+            "Step": steps,
+            **val_score_dict,
+        })
 if __name__ == '__main__':
     # WLASL setting
     
@@ -237,7 +261,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-resized'}
 
-    save_model = '1123-25-wo-add-multi-to-late-fusion-24'
+    save_model = '1123-26-optimise-pose-only-late-fusion-22'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 

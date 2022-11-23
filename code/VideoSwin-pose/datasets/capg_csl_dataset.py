@@ -73,7 +73,7 @@ def pose_filtering(video_path, kpts_2d):
         if max(x, y) > 40:
             end_index = img_index
             break
-    print(video_path, start_index, end_index, len(img_list))
+    # print(video_path, start_index, end_index, len(img_list))
     return frame_paths[start_index:end_index]
 
 def load_rgb_frames(frame_paths, sampler, kpts_2d, img_norm):
@@ -179,17 +179,18 @@ def load_flow_frames(image_dir, vid, start, num):
     return np.asarray(frames, dtype=np.float32)
 
 
-def make_dataset(split, root, num_classes, kpts_2d):
+def make_dataset(split, root, num_classes, kpts_2d, view_list):
 
     dataset = []
     vid_root = root['word']
 
     i = 0
-    count_skipping = 0
     for path in sorted(glob(f"{vid_root}/*/*/*/camera_*")):
         if path[-8:-1] != 'camera_':
             continue
         label, signer, record_time, view = path.split('/')[-4:]
+        if view not in view_list:
+            continue
         if int(label) > num_classes:
             continue
         # if split == 'train':
@@ -198,7 +199,7 @@ def make_dataset(split, root, num_classes, kpts_2d):
         # else:
         #     if view not in ['camera_2']:
         #         continue
-        print(label, signer, record_time, view)
+        # print(label, signer, record_time, view)
         if split == 'train':
             if signer not in ['liya']:
                 continue
@@ -210,8 +211,6 @@ def make_dataset(split, root, num_classes, kpts_2d):
         dataset.append((label, path, pose_filtering(path, kpts_2d)))
         i += 1
 
-    print("Skipped videos: ", count_skipping)
-    print(len(dataset))
     return dataset
 
 
@@ -430,7 +429,7 @@ class SampleFrames:
 
 class CAPG_CSL(data_utl.Dataset):
 
-    def __init__(self, split, root, transforms=None, num_classes=21):
+    def __init__(self, split, root, transforms=None, num_classes=21, view_list=['camera_0', 'camera_1', 'camera_2', 'camera_3']):
         self.num_classes = num_classes
         self.transforms = transforms
         self.root = root
@@ -442,7 +441,7 @@ class CAPG_CSL(data_utl.Dataset):
         )
         with open(root['word']+'/2dkeypoints.json', 'r') as f:
             self.kpts_2d = json.load(f)
-        self.data = make_dataset(split, root, num_classes=self.num_classes, kpts_2d=self.kpts_2d)
+        self.data = make_dataset(split, root, num_classes=self.num_classes, kpts_2d=self.kpts_2d, view_list=view_list)
 
     def __getitem__(self, index):
         """
