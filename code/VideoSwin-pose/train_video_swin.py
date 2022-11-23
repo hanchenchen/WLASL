@@ -264,7 +264,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-resized'}
 
-    save_model = '1123-27-scheduler-step-val-loss-26-step-val-score'
+    save_model = '1123-28-reproduce-22-w-sepa-view-val'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 

@@ -54,9 +54,9 @@ class RGBCueModel(nn.Module):
         framewise_feats = x
         x = x + self.pos_emb
         x = self.long_term_model(x)
-        contextual_feats = x[:, 0, :]
+        contextual_feats = x
         logits = self.pred_head(x[:, 0, :])*self.scale
-        return logits, framewise_feats, contextual_feats, self.scale
+        return logits, x[:, 0, :], self.scale
 
 
 class OpticalFlowCueModel(nn.Module):
@@ -98,9 +98,9 @@ class OpticalFlowCueModel(nn.Module):
         framewise_feats = x
         x = x + self.pos_emb
         x = self.long_term_model(x)
-        contextual_feats = x[:, 0, :]
+        contextual_feats = x
         logits = self.pred_head(x[:, 0, :])*self.scale
-        return logits, framewise_feats, contextual_feats, self.scale
+        return logits, x[:, 0, :], self.scale
 
 
 class PoseCueModel(nn.Module):
@@ -111,28 +111,18 @@ class PoseCueModel(nn.Module):
         frame_len,
     ):
         super(PoseCueModel, self).__init__()
-        pose_dim = 274
-        self.proj = nn.Linear(pose_dim, pose_dim)
-        self.short_term_model = TemporalConv(
-            input_size=pose_dim,
-            hidden_size=hidden_dim,
-            conv_type=3,
-        )
-        self.pos_emb = nn.Parameter(torch.randn(1, frame_len//2, hidden_dim))
-        encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_dim, nhead=8, batch_first=True)
+        self.pos_emb = nn.Parameter(torch.randn(1, frame_len, hidden_dim))
+        encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_dim, nhead=2, batch_first=True)
         self.long_term_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
         self.pred_head = nn.Linear(hidden_dim, num_classes)
         self.scale = nn.Parameter(torch.ones(1))
 
     def forward(self, x):
-        x = self.proj(x)
-        x = self.short_term_model(x.permute(0, 2, 1)).permute(0, 2, 1)
-        framewise_feats = x
         x = x + self.pos_emb
         x = self.long_term_model(x)
-        contextual_feats = x[:, 0, :]
+        contextual_feats = x
         logits = self.pred_head(x[:, 0, :])*self.scale
-        return logits, framewise_feats, contextual_feats, self.scale
+        return logits, x[:, 0, :], self.scale
 
 
 class MultiCueModel(nn.Module):
@@ -175,26 +165,17 @@ class MultiCueModel(nn.Module):
                 frame_len=frame_len,)
 
         if 'pose' in cue: 
+            pose_dim = 274
             self.pose_model = PoseCueModel(
                 num_classes=num_classes,
-                hidden_dim=768,
+                hidden_dim=pose_dim,
                 frame_len=frame_len,)
-        glo_dim = 768*5
-        # self.pos_emb = nn.Parameter(torch.randn(1, frame_len//2, glo_dim))
-        # encoder_layer = nn.TransformerEncoderLayer(d_model=glo_dim, nhead=7, batch_first=True)
-        # self.long_term_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
-        # self.pred_head = nn.Sequential(
-        #     nn.Linear(glo_dim, glo_dim),
-        #     nn.Linear(glo_dim, num_classes),
-        # )
-        # self.scale = nn.Parameter(torch.ones(1))
-        
-        # glo_dim = glo_dim * 2
-        self.glo_pred_head = nn.Sequential(
+        glo_dim = 768*4 + pose_dim
+        self.pred_head = nn.Sequential(
             nn.Linear(glo_dim, glo_dim),
             nn.Linear(glo_dim, num_classes),
         )
-        self.glo_scale = nn.Parameter(torch.ones(1))
+        self.scale = nn.Parameter(torch.ones(1))
 
     def forward_cue(self, x, cue):
         if cue != 'pose':
@@ -208,29 +189,18 @@ class MultiCueModel(nn.Module):
 
     def forward(self, inputs):
         ret = {}
-        framewise_feats_list = []
-        contextual_feats_list = []
+        feats_list = []
         for key, value in inputs.items():
-            logits, framewise_feats, contextual_feats, scale = self.forward_cue(value, key)
+            logits, feats, scale = self.forward_cue(value, key)
             ret[key] = {
                 'logits': logits, 
+                'feats': feats,
                 'scale': scale,
                 }
-            framewise_feats_list.append(framewise_feats)
-            contextual_feats_list.append(contextual_feats)
-        # x = torch.cat(framewise_feats_list, dim=-1)
-        # x = x + self.pos_emb
-        # x = self.long_term_model(x)
-        # logits = self.pred_head(x[:, 0, :])*self.scale
-        # ret['multi_cue'] = {
-        #     'logits': logits, 
-        #     'scale': self.scale,
-        #     }
-        # contextual_feats_list.append(x[:, 0, :])
-        x = torch.cat(contextual_feats_list, dim=-1)
-        logits = self.glo_pred_head(x)*self.glo_scale
+            feats_list.append(feats)
+        feats = torch.cat(feats_list, dim=-1)
         ret['late_fusion'] = {
-            'logits': logits, 
-            'scale': self.glo_scale,
+            'logits': self.pred_head(feats)*self.scale, 
+            'scale': self.scale,
             }
         return ret
