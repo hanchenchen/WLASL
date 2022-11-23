@@ -103,7 +103,7 @@ def run(configs,
         print('-' * 10)
 
         epoch += 1
-        val_score_dict = {}
+        val_score_dict = {"val_loss": 0.0}
         # Each epoch has a training and validation phase
         for phase in phase_list:
             torch.cuda.empty_cache() 
@@ -202,6 +202,8 @@ def run(configs,
                 val_score = float(np.trace(confusion_matrix)) / np.sum(confusion_matrix)
                 acc_cue = {f"{phase}/Accu/"+key: float(np.trace(confusion_matrix_cue[key])) / np.sum(confusion_matrix_cue[key]) for key in confusion_matrix_cue.keys()}
                 val_score_dict[phase] = val_score
+                if phase in ['test-camera_0', 'test-camera_1']:
+                    val_score_dict['val_loss'] += tot_loss
 
                 localtime = datetime.datetime.fromtimestamp(
                     int(time.time()), pytz.timezone("Asia/Shanghai")
@@ -238,7 +240,7 @@ def run(configs,
                 os.remove(path)
                 print('Remove:', path)
             print(model_name)
-        scheduler.step(avg_val_score)
+        scheduler.step(val_score_dict['val_loss'])
 
         localtime = datetime.datetime.fromtimestamp(
             int(time.time()), pytz.timezone("Asia/Shanghai")
@@ -254,6 +256,7 @@ def run(configs,
             "Step": steps,
             **val_score_dict,
         })
+
 if __name__ == '__main__':
     # WLASL setting
     
@@ -261,7 +264,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-resized'}
 
-    save_model = '1123-26-optimise-pose-only-late-fusion-22'
+    save_model = '1123-27-scheduler-step-val-loss-26-step-val-score'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
