@@ -26,7 +26,9 @@ import pytz
 # from datasets.nslt_dataset import NSLT as Dataset
 # from datasets.nslt_dataset import NSLT as Dataset
 from datasets.capg_csl_dataset import CAPG_CSL as Dataset
-
+import seaborn as sns
+import pandas as pd
+import matplotlib.pyplot as plt
 from MultiCueModel import MultiCueModel
 
 # torch.cuda.set_device(0)
@@ -43,6 +45,15 @@ np.random.seed(0)
 
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
+
+def confusion_matrix_fig(res, x_labels=None, y_labels=None, save_path=''):
+    # res = res.cpu().numpy()
+    df = pd.DataFrame(res, index=x_labels, columns=y_labels)
+    sns.heatmap(df)
+    # sns.heatmap(df, annot=True, fmt=".2f")
+    if save_path:
+        plt.savefig(save_path)
+    plt.clf()
 
 def run(configs,
         mode='rgb',
@@ -62,16 +73,25 @@ def run(configs,
                                              pin_memory=True)
     print('Train', len(dataset))
     view_list = ['camera_0', 'camera_1', 'camera_2', 'camera_3']
+    phase_list = []
     val_dataset = {}
     val_dataloader = {}
+    test_dataset = {}
+    test_dataloader = {}
     for view in view_list:
-        val_dataset[f'test-{view}'] = Dataset('test', root, test_transforms, view_list=[view])
-        val_dataloader[f'test-{view}'] = torch.utils.data.DataLoader(val_dataset[f'test-{view}'] , batch_size=configs.batch_size, shuffle=True, num_workers=2,pin_memory=False)
-        print(f'test-{view}', len(val_dataset[f'test-{view}']))
+        phase_list.append(f'val-{view}')
+        val_dataset[f'val-{view}'] = Dataset('test', root, test_transforms, view_list=[view], class_list=[i for i in range(10)])
+        val_dataloader[f'val-{view}'] = torch.utils.data.DataLoader(val_dataset[f'val-{view}'] , batch_size=configs.batch_size, shuffle=True, num_workers=2,pin_memory=False)
+        print(f'val-{view}', len(val_dataset[f'val-{view}']))
+    for view in view_list:
+        phase_list.append(f'test-{view}')
+        test_dataset[f'test-{view}'] = Dataset('test', root, test_transforms, view_list=[view], 
+        class_list=[i for i in range(10, 21)])
+        test_dataloader[f'test-{view}'] = torch.utils.data.DataLoader(test_dataset[f'test-{view}'] , batch_size=configs.batch_size, shuffle=True, num_workers=2,pin_memory=False)
+        print(f'test-{view}', len(test_dataset[f'test-{view}']))
 
-    dataloaders = {'train': dataloader, **val_dataloader}
-    datasets = {'train': dataset, **val_dataset}
-    phase_list = dataloaders.keys()
+    dataloaders = {'train': dataloader, **val_dataloader, **test_dataloader}
+    datasets = {'train': dataset, **val_dataset, **test_dataset}
 
     num_classes = dataset.num_classes
     
@@ -104,6 +124,7 @@ def run(configs,
 
         epoch += 1
         val_score_dict = {"val_loss": 0.0}
+        test_score_dict = {"test_loss": 0.0}
         # Each epoch has a training and validation phase
         for phase in phase_list:
             torch.cuda.empty_cache() 
@@ -198,12 +219,18 @@ def run(configs,
                             **scales
                         })
                         tot_loss = 0.
-            if 'test' in phase:
+            if 'val' in phase:
+                save_path = save_model + f'confusion_matrix/{phase}/' 
+                os.makedirs(save_path, exist_ok=True)
+                confusion_matrix_fig(confusion_matrix, 
+                x_labels=[i for i in range(21)], 
+                y_labels=[i for i in range(21)], 
+                save_path=save_path+f'{epoch}.png')
+
                 val_score = float(np.trace(confusion_matrix)) / np.sum(confusion_matrix)
                 acc_cue = {f"{phase}/Accu/"+key: float(np.trace(confusion_matrix_cue[key])) / np.sum(confusion_matrix_cue[key]) for key in confusion_matrix_cue.keys()}
                 val_score_dict[phase] = val_score
-                if phase in ['test-camera_0', 'test-camera_1']:
-                    val_score_dict['val_loss'] += tot_loss
+                val_score_dict['val_loss'] += tot_loss
 
                 localtime = datetime.datetime.fromtimestamp(
                     int(time.time()), pytz.timezone("Asia/Shanghai")
@@ -227,9 +254,44 @@ def run(configs,
                     **acc_cue,
                     **scales
                 })
+            if 'test' in phase:
+                save_path = save_model + f'confusion_matrix/{phase}/' 
+                os.makedirs(save_path, exist_ok=True)
+                confusion_matrix_fig(confusion_matrix, 
+                x_labels=[i for i in range(21)], 
+                y_labels=[i for i in range(21)], 
+                save_path=save_path+f'{epoch}.png')
+                val_score = float(np.trace(confusion_matrix)) / np.sum(confusion_matrix)
+                acc_cue = {f"{phase}/Accu/"+key: float(np.trace(confusion_matrix_cue[key])) / np.sum(confusion_matrix_cue[key]) for key in confusion_matrix_cue.keys()}
+                test_score_dict[phase] = val_score
+                test_score_dict['test_loss'] += tot_loss
 
-        avg_val_score = (val_score_dict['test-camera_0'] + val_score_dict['test-camera_1']) / 2.0
-        avg_test_score = (val_score_dict['test-camera_2'] + val_score_dict['test-camera_3']) / 2.0
+                localtime = datetime.datetime.fromtimestamp(
+                    int(time.time()), pytz.timezone("Asia/Shanghai")
+                    ).strftime("%Y-%m-%d %H:%M:%S")
+                            
+                log = "[ " + localtime + " ] " + 'Epoch {} Step {} TEST: {} LR: {:.8f} Tot Loss: {:.4f} Accu :{:.4f} {} {}'.format(epoch, steps, phase, optimizer.param_groups[0]["lr"],
+                                                                                                              (tot_loss * num_steps_per_update) / num_iter,
+                                                                                                              val_score,
+                                                                                                              acc_cue,
+                                                                                                              scales
+                                                                                                              )
+                print(log)
+                with open(save_model + 'acc_val.txt', "a") as f:
+                    f.writelines(log)
+                    f.writelines("\n")
+                wandb.log({
+                    "Epoch": epoch,
+                    "Step": steps,
+                    f"{phase}/Tot Loss": (tot_loss * num_steps_per_update) / num_iter,
+                    f"{phase}/Accu": val_score,
+                    **acc_cue,
+                    **scales
+                })
+
+        avg_val_score = sum([v for k, v in val_score_dict.items() if 'camera_' in k]) / 4.0
+        avg_test_score = sum([v for k, v in test_score_dict.items() if 'camera_' in k]) / 4.0
+
         if avg_val_score >= best_val_score:
             best_val_score = avg_val_score
             model_name = f"{save_model}nslt_{str(num_classes)}_{avg_val_score:.3f}_{epoch:05}_{avg_test_score:.3f}.pt"
@@ -246,7 +308,7 @@ def run(configs,
             int(time.time()), pytz.timezone("Asia/Shanghai")
             ).strftime("%Y-%m-%d %H:%M:%S")
                     
-        log = "[ " + localtime + " ] " + 'Epoch {} Step {} VALIDATION: {} '.format(epoch, steps, val_score_dict)
+        log = "[ " + localtime + " ] " + 'Epoch {} Step {} VALIDATION: {} TEST: {}'.format(epoch, steps, val_score_dict, test_score_dict)
         print(log)
         with open(save_model + 'acc_val.txt', "a") as f:
             f.writelines(log)
@@ -255,6 +317,7 @@ def run(configs,
             "Epoch": epoch,
             "Step": steps,
             **val_score_dict,
+            **test_score_dict,
         })
 
 if __name__ == '__main__':
@@ -264,7 +327,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-resized'}
 
-    save_model = '1124-32-add-proj-conv1d-to-pose-model-31'
+    save_model = '1124-33-1-9-as-val-left-as-test-32'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 

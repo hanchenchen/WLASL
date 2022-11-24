@@ -179,7 +179,11 @@ def load_flow_frames(image_dir, vid, start, num):
     return np.asarray(frames, dtype=np.float32)
 
 
-def make_dataset(split, root, num_classes, kpts_2d, view_list):
+def make_dataset(split, root, num_classes, 
+    kpts_2d, 
+    view_list,
+    class_list,
+    ):
 
     dataset = []
     vid_root = root['word']
@@ -190,6 +194,8 @@ def make_dataset(split, root, num_classes, kpts_2d, view_list):
             continue
         label, signer, record_time, view = path.split('/')[-4:]
         if view not in view_list:
+            continue
+        if int(label) not in class_list:
             continue
         if int(label) > num_classes:
             continue
@@ -429,8 +435,15 @@ class SampleFrames:
 
 class CAPG_CSL(data_utl.Dataset):
 
-    def __init__(self, split, root, transforms=None, num_classes=21, view_list=['camera_0', 'camera_1', 'camera_2', 'camera_3']):
+    def __init__(self, split, root, transforms=None, num_classes=21, 
+    class_list=[],
+    view_list=['camera_0', 'camera_1', 'camera_2', 'camera_3']):
         self.num_classes = num_classes
+        if not class_list:
+            class_list = [i for i in range(num_classes)]
+        else:
+            class_list = class_list
+
         self.transforms = transforms
         self.root = root
         self.total_frames = 32
@@ -441,7 +454,12 @@ class CAPG_CSL(data_utl.Dataset):
         )
         with open(root['word']+'/2dkeypoints.json', 'r') as f:
             self.kpts_2d = json.load(f)
-        self.data = make_dataset(split, root, num_classes=self.num_classes, kpts_2d=self.kpts_2d, view_list=view_list)
+        self.data = make_dataset(split, root, 
+        num_classes=self.num_classes, 
+        kpts_2d=self.kpts_2d, 
+        view_list=view_list,
+        class_list=class_list,
+        )
 
     def __getitem__(self, index):
         """

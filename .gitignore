@@ -12,5 +12,6 @@ code/I3D/archived/
 *.pyc
 *.txt
 *.jpg
+*.png
 wandb/
 archived/
