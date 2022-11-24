@@ -199,6 +199,8 @@ class MultiCueModel(nn.Module):
                 }
             feats_list.append(feats)
         feats = torch.cat(feats_list, dim=-1)
-        ret['glo_logits'] = self.pred_head(feats)*self.scale
-        ret['glo_scale'] = self.scale
+        ret['late_fusion'] = {
+            'logits': self.pred_head(feats)*self.scale, 
+            'scale': self.scale,
+            }
         return ret
