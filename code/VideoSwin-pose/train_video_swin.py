@@ -97,7 +97,7 @@ def run(configs,
 
     best_val_score = 0
     # train it
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', patience=5, factor=0.3)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=5, factor=0.3)
     while steps < configs.max_steps and epoch < 400:  # for epoch in range(num_epochs):
         print('Step {}/{}'.format(steps, configs.max_steps))
         print('-' * 10)
@@ -240,7 +240,7 @@ def run(configs,
                 os.remove(path)
                 print('Remove:', path)
             print(model_name)
-        scheduler.step(val_score_dict['val_loss'])
+        scheduler.step(val_score_dict['val_loss'] * num_steps_per_update / num_iter)
 
         localtime = datetime.datetime.fromtimestamp(
             int(time.time()), pytz.timezone("Asia/Shanghai")
@@ -264,7 +264,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-resized'}
 
-    save_model = '1123-28-reproduce-22-w-sepa-view-val'
+    save_model = '1123-29-debug-scheduler-max_min-28'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
