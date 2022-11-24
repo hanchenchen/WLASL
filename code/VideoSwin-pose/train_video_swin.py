@@ -69,20 +69,22 @@ def run(configs,
         val_dataloader[f'test-{view}'] = torch.utils.data.DataLoader(val_dataset[f'test-{view}'] , batch_size=configs.batch_size, shuffle=True, num_workers=2,pin_memory=False)
         print(f'test-{view}', len(val_dataset[f'test-{view}']))
 
-    dataloaders = {'train': dataloader, **val_dataloader}
-    datasets = {'train': dataset, **val_dataset}
+    # dataloaders = {'train': dataloader, **val_dataloader}
+    # datasets = {'train': dataset, **val_dataset}
+    dataloaders = {**val_dataloader}
+    datasets = {**val_dataset}
     phase_list = dataloaders.keys()
 
     num_classes = dataset.num_classes
     
     cue = ['full_rgb', 'right_hand', 'left_hand', 'face', 'pose']
     # supervised_cue = cue + ['multi_cue', 'late_fusion']
-    supervised_cue = cue + ['late_fusion']
+    supervised_cue = cue
     model = MultiCueModel(cue, num_classes, share_hand_model=True)
 
     if weights:
         print('loading weights {}'.format(weights))
-        model.load_state_dict(torch.load(weights))
+        model.load_state_dict(torch.load(weights), strict=True)
 
     model.cuda()
     model = nn.DataParallel(model, device_ids=device_ids)
@@ -151,7 +153,7 @@ def run(configs,
                     for i in range(logits.shape[0]):
                         confusion_matrix_cue[key][labels[i].item(), pred[i].item()] += 1
                 
-                logits = ret['late_fusion']['logits']
+                logits = ret['glo_logits']
                 pred = torch.argmax(logits, dim=1)
                 for i in range(logits.shape[0]):
                     confusion_matrix[labels[i].item(), pred[i].item()] += 1
@@ -264,12 +266,12 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-resized'}
 
-    save_model = '1124-31-wo-scheduler-29'
+    save_model = '1124-30-test-22'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
-    # weights = 'checkpoints/nslt_100_004170_0.010638.pt'
-    weights = None
+    weights = '1122-22-add-glo-scale-19-cat-feats-18/nslt_21__0.912500_001600.pt'
+    # weights = None
     config_file = 'configfiles/capg20.ini'
 
     configs = Config(config_file)
