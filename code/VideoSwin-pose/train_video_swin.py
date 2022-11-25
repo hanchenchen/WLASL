@@ -73,7 +73,7 @@ def run(configs,
                                              pin_memory=True)
     print('Train', len(dataset))
     view_list = ['camera_0', 'camera_1', 'camera_2', 'camera_3']
-    phase_list = []
+    phase_list = ['train']
     val_dataset = {}
     val_dataloader = {}
     test_dataset = {}
@@ -141,8 +141,9 @@ def run(configs,
             num_iter = 0
             optimizer.zero_grad()
 
-            confusion_matrix = np.zeros((num_classes, num_classes), dtype=np.int)
-            confusion_matrix_cue = {key: np.zeros((num_classes, num_classes), dtype=np.int) for key in supervised_cue}
+            confusion_matrix = np.zeros((num_classes, num_classes), dtype=np.int32)
+            confusion_matrix_float = np.zeros((num_classes, num_classes), dtype=np.float)
+            confusion_matrix_cue = {key: np.zeros((num_classes, num_classes), dtype=np.int32) for key in supervised_cue}
             # Iterate over data.
             for data in dataloaders[phase]:
                 num_iter += 1
@@ -176,6 +177,7 @@ def run(configs,
                 pred = torch.argmax(logits, dim=1)
                 for i in range(logits.shape[0]):
                     confusion_matrix[labels[i].item(), pred[i].item()] += 1
+                    confusion_matrix_float[labels[i].item()] += logits[i].detach().cpu().numpy()
 
                 loss = loss / num_steps_per_update
                 tot_loss += loss.data.item()
@@ -226,6 +228,10 @@ def run(configs,
                 x_labels=[i for i in range(21)], 
                 y_labels=[i for i in range(21)], 
                 save_path=save_path+f'{epoch}.png')
+                confusion_matrix_fig(confusion_matrix_float, 
+                x_labels=[i for i in range(21)], 
+                y_labels=[i for i in range(21)], 
+                save_path=save_path+f'{epoch}-float.png')
 
                 val_score = float(np.trace(confusion_matrix)) / np.sum(confusion_matrix)
                 acc_cue = {f"{phase}/Accu/"+key: float(np.trace(confusion_matrix_cue[key])) / np.sum(confusion_matrix_cue[key]) for key in confusion_matrix_cue.keys()}
@@ -261,6 +267,10 @@ def run(configs,
                 x_labels=[i for i in range(21)], 
                 y_labels=[i for i in range(21)], 
                 save_path=save_path+f'{epoch}.png')
+                confusion_matrix_fig(confusion_matrix_float, 
+                x_labels=[i for i in range(21)], 
+                y_labels=[i for i in range(21)], 
+                save_path=save_path+f'{epoch}-float.png')
                 val_score = float(np.trace(confusion_matrix)) / np.sum(confusion_matrix)
                 acc_cue = {f"{phase}/Accu/"+key: float(np.trace(confusion_matrix_cue[key])) / np.sum(confusion_matrix_cue[key]) for key in confusion_matrix_cue.keys()}
                 test_score_dict[phase] = val_score
