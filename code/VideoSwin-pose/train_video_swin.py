@@ -309,7 +309,7 @@ def run(configs,
                 os.remove(path)
                 print('Remove:', path)
             print(model_name)
-        # scheduler.step(val_score_dict['val_loss'] * num_steps_per_update / num_iter)
+        scheduler.step(val_score_dict['val_loss'] * num_steps_per_update / num_iter)
 
         localtime = datetime.datetime.fromtimestamp(
             int(time.time()), pytz.timezone("Asia/Shanghai")
@@ -335,7 +335,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-resized'}
 
-    save_model = '1125-34-cross-validation-32'
+    save_model = '1125-35-add-scheduler-34'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
