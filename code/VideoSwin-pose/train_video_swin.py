@@ -79,16 +79,16 @@ def run(configs,
     test_dataset = {}
     test_dataloader = {}
     for view in view_list:
-        phase_list.append(f'val-{view}')
-        val_dataset[f'val-{view}'] = Dataset('test', root, test_transforms, view_list=[view], class_list=[i for i in range(10)])
-        val_dataloader[f'val-{view}'] = torch.utils.data.DataLoader(val_dataset[f'val-{view}'] , batch_size=configs.batch_size, shuffle=True, num_workers=2,pin_memory=False)
-        print(f'val-{view}', len(val_dataset[f'val-{view}']))
-    for view in view_list:
-        phase_list.append(f'test-{view}')
-        test_dataset[f'test-{view}'] = Dataset('test', root, test_transforms, view_list=[view], 
-        class_list=[i for i in range(10, 21)])
-        test_dataloader[f'test-{view}'] = torch.utils.data.DataLoader(test_dataset[f'test-{view}'] , batch_size=configs.batch_size, shuffle=True, num_workers=2,pin_memory=False)
-        print(f'test-{view}', len(test_dataset[f'test-{view}']))
+        phase_list.append(f'val/{view}')
+        val_dataset[f'val/{view}'] = Dataset('test', root, test_transforms, view_list=[view])
+        val_dataloader[f'val/{view}'] = torch.utils.data.DataLoader(val_dataset[f'val/{view}'] , batch_size=configs.batch_size, shuffle=True, num_workers=2,pin_memory=False)
+        print(f'val/{view}', len(val_dataset[f'val/{view}']))
+    # for view in view_list:
+    #     phase_list.append(f'test/{view}')
+    #     test_dataset[f'test/{view}'] = Dataset('test', root, test_transforms, view_list=[view], 
+    #     class_list=[i for i in range(10, 21)])
+    #     test_dataloader[f'test/{view}'] = torch.utils.data.DataLoader(test_dataset[f'test/{view}'] , batch_size=configs.batch_size, shuffle=True, num_workers=2,pin_memory=False)
+    #     print(f'test/{view}', len(test_dataset[f'test/{view}']))
 
     dataloaders = {'train': dataloader, **val_dataloader, **test_dataloader}
     datasets = {'train': dataset, **val_dataset, **test_dataset}
@@ -242,11 +242,10 @@ def run(configs,
                     int(time.time()), pytz.timezone("Asia/Shanghai")
                     ).strftime("%Y-%m-%d %H:%M:%S")
                             
-                log = "[ " + localtime + " ] " + 'Epoch {} Step {} VALIDATION: {} LR: {:.8f} Tot Loss: {:.4f} Accu :{:.4f} {} {}'.format(epoch, steps, phase, optimizer.param_groups[0]["lr"],
+                log = "[ " + localtime + " ] " + 'Epoch {} Step {} VALIDATION: {} LR: {:.8f} Tot Loss: {:.4f} Accu :{:.4f} {}'.format(epoch, steps, phase, optimizer.param_groups[0]["lr"],
                                                                                                               (tot_loss * num_steps_per_update) / num_iter,
                                                                                                               val_score,
                                                                                                               acc_cue,
-                                                                                                              scales
                                                                                                               )
                 print(log)
                 with open(save_model + 'acc_val.txt', "a") as f:
@@ -258,7 +257,6 @@ def run(configs,
                     f"{phase}/Tot Loss": (tot_loss * num_steps_per_update) / num_iter,
                     f"{phase}/Accu": val_score,
                     **acc_cue,
-                    **scales
                 })
             if 'test' in phase:
                 save_path = save_model + f'confusion_matrix/{phase}/' 
@@ -280,11 +278,10 @@ def run(configs,
                     int(time.time()), pytz.timezone("Asia/Shanghai")
                     ).strftime("%Y-%m-%d %H:%M:%S")
                             
-                log = "[ " + localtime + " ] " + 'Epoch {} Step {} TEST: {} LR: {:.8f} Tot Loss: {:.4f} Accu :{:.4f} {} {}'.format(epoch, steps, phase, optimizer.param_groups[0]["lr"],
+                log = "[ " + localtime + " ] " + 'Epoch {} Step {} TEST: {} LR: {:.8f} Tot Loss: {:.4f} Accu :{:.4f} {}'.format(epoch, steps, phase, optimizer.param_groups[0]["lr"],
                                                                                                               (tot_loss * num_steps_per_update) / num_iter,
                                                                                                               val_score,
-                                                                                                              acc_cue,
-                                                                                                              scales
+                                                                                                              acc_cue
                                                                                                               )
                 print(log)
                 with open(save_model + 'acc_val.txt', "a") as f:
@@ -296,15 +293,15 @@ def run(configs,
                     f"{phase}/Tot Loss": (tot_loss * num_steps_per_update) / num_iter,
                     f"{phase}/Accu": val_score,
                     **acc_cue,
-                    **scales
                 })
 
         avg_val_score = sum([v for k, v in val_score_dict.items() if 'camera_' in k]) / 4.0
-        avg_test_score = sum([v for k, v in test_score_dict.items() if 'camera_' in k]) / 4.0
+        # avg_test_score = sum([v for k, v in test_score_dict.items() if 'camera_' in k]) / 4.0
 
         if avg_val_score >= best_val_score:
             best_val_score = avg_val_score
-            model_name = f"{save_model}nslt_{str(num_classes)}_{avg_val_score:.3f}_{epoch:05}_{avg_test_score:.3f}.pt"
+            # model_name = f"{save_model}nslt_{str(num_classes)}_{avg_val_score:.3f}_{epoch:05}_{avg_test_score:.3f}.pt"
+            model_name = f"{save_model}nslt_{str(num_classes)}_{avg_val_score:.3f}_{epoch:05}.pt"
             torch.save(model.module.state_dict(), model_name)
             seq_model_list = glob(save_model + "nslt_*.pt")
             seq_model_list = sorted(seq_model_list)
@@ -318,7 +315,8 @@ def run(configs,
             int(time.time()), pytz.timezone("Asia/Shanghai")
             ).strftime("%Y-%m-%d %H:%M:%S")
                     
-        log = "[ " + localtime + " ] " + 'Epoch {} Step {} VALIDATION: {} TEST: {}'.format(epoch, steps, val_score_dict, test_score_dict)
+        # log = "[ " + localtime + " ] " + 'Epoch {} Step {} VALIDATION: {} TEST: {}'.format(epoch, steps, val_score_dict, test_score_dict)
+        log = "[ " + localtime + " ] " + 'Epoch {} Step {} VALIDATION: {}'.format(epoch, steps, val_score_dict)
         print(log)
         with open(save_model + 'acc_val.txt', "a") as f:
             f.writelines(log)
@@ -327,7 +325,7 @@ def run(configs,
             "Epoch": epoch,
             "Step": steps,
             **val_score_dict,
-            **test_score_dict,
+            # **test_score_dict,
         })
 
 if __name__ == '__main__':
@@ -337,7 +335,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-resized'}
 
-    save_model = '1124-33-1-9-as-val-left-as-test-32'
+    save_model = '1125-34-cross-validation-32'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
