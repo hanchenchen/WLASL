@@ -83,6 +83,17 @@ def load_rgb_frames(frame_paths, sampler, kpts_2d, img_norm):
     face = []
     poses = []
     indexes = sampler({'start_index': 0, 'total_frames': len(frame_paths)})['frame_inds']
+
+    label, signer, record_time, view, img_name = frame_paths[0].split('/')[-5:]
+    key = f"{label}/{signer}/{record_time}"
+    pose = kpts_2d[key][view][img_name]
+    shoudler = (pose['pose_keypoints_2d'][2*3] - pose['pose_keypoints_2d'][5*3])**2
+    shoudler += (pose['pose_keypoints_2d'][2*3+1] - pose['pose_keypoints_2d'][5*3+1])**2
+    shoudler = shoudler**0.5
+    center_x = (pose['pose_keypoints_2d'][2*3] + pose['pose_keypoints_2d'][5*3])/2.0
+    center_y = (pose['pose_keypoints_2d'][2*3+1] + pose['pose_keypoints_2d'][5*3+1])/2.0
+    center = torch.tensor([center_x, center_y])
+
     for i in list(indexes):
         img = cv2.imread(frame_paths[i])[:, :, [2, 1, 0]]
         right_hand_img = cv2.imread(frame_paths[i].replace('capg-csl-resized', 'capg-csl-rgb-right-hand'))[:, :, [2, 1, 0]]
@@ -114,13 +125,14 @@ def load_rgb_frames(frame_paths, sampler, kpts_2d, img_norm):
         label, signer, record_time, view, img_name = frame_paths[i].split('/')[-5:]
         key = f"{label}/{signer}/{record_time}"
         pose = kpts_2d[key][view][img_name]
-        shoudler = abs(pose['pose_keypoints_2d'][2*3] - pose['pose_keypoints_2d'][5*3])
         pose_keypoints_2d = torch.tensor(pose['pose_keypoints_2d']).reshape(-1, 3)[:, :2].reshape(-1)
         face_keypoints_2d = torch.tensor(pose['face_keypoints_2d']).reshape(-1, 3)[:, :2].reshape(-1)
         hand_left_keypoints_2d = torch.tensor(pose['hand_left_keypoints_2d']).reshape(-1, 3)[:, :2].reshape(-1)
         hand_right_keypoints_2d = torch.tensor(pose['hand_right_keypoints_2d']).reshape(-1, 3)[:, :2].reshape(-1)
+        kpts = torch.cat([pose_keypoints_2d,face_keypoints_2d,hand_left_keypoints_2d,hand_right_keypoints_2d], dim=0)
+        kpts = (kpts.reshape(-1, 2) - center.reshape(-1, 2)).reshape(-1)/shoudler
         poses.append(
-            torch.cat([pose_keypoints_2d,face_keypoints_2d,hand_left_keypoints_2d,hand_right_keypoints_2d], dim=0)/shoudler
+            kpts
         )
     return np.asarray(frames, dtype=np.float32), np.asarray(right_hand, dtype=np.float32), np.asarray(left_hand, dtype=np.float32), np.asarray(face, dtype=np.float32), poses
 
