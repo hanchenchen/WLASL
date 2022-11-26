@@ -212,9 +212,6 @@ class MultiCueModel(nn.Module):
                 'feats': feats,
                 'scale': scale,
                 }
-            if self.training and torch.rand(()) < 0.15:
-                print('Mask', key, end='')
-                feats = eval(f'self.{key}_placeholder').repeat(feats.shape[0], 1)
             feats_list.append(feats)
         feats = torch.cat(feats_list, dim=-1)
         ret['late_fusion'] = {
