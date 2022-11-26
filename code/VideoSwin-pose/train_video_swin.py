@@ -3,7 +3,7 @@ import argparse
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = '6,7'
-device_ids = [0]
+device_ids = [0, 1]
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -335,7 +335,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-resized'}
 
-    save_model = '1125-38-norm-pose-36'
+    save_model = '1126-39-avoid-order-change-38-norm-pose-36'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 

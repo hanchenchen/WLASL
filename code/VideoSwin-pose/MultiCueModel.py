@@ -152,18 +152,21 @@ class MultiCueModel(nn.Module):
                 num_classes=num_classes,
                 hidden_dim=768,
                 frame_len=frame_len,)
+            self.full_rgb_placeholder = nn.Parameter(torch.randn(1, 768))
 
         if 'right_hand' in cue: 
             self.right_hand_model = RGBCueModel(
                 num_classes=num_classes,
                 hidden_dim=768,
                 frame_len=frame_len,)
+            self.right_hand_placeholder = nn.Parameter(torch.randn(1, 768))
 
         if 'left_hand' in cue: 
             self.left_hand_model = RGBCueModel(
                 num_classes=num_classes,
                 hidden_dim=768,
                 frame_len=frame_len,)
+            self.left_hand_placeholder = nn.Parameter(torch.randn(1, 768))
 
         if share_hand_model:
             self.right_hand_model = self.left_hand_model
@@ -173,12 +176,14 @@ class MultiCueModel(nn.Module):
                 num_classes=num_classes,
                 hidden_dim=768,
                 frame_len=frame_len,)
+            self.face_placeholder = nn.Parameter(torch.randn(1, 768))
 
         if 'pose' in cue: 
             self.pose_model = PoseCueModel(
                 num_classes=num_classes,
                 hidden_dim=768,
                 frame_len=frame_len,)
+            self.pose_placeholder = nn.Parameter(torch.randn(1, 768))
         glo_dim = 768*5
         self.pred_head = nn.Sequential(
             nn.Linear(glo_dim, glo_dim),
@@ -199,7 +204,8 @@ class MultiCueModel(nn.Module):
     def forward(self, inputs):
         ret = {}
         feats_list = []
-        for key, value in inputs.items():
+        for key in self.cue:
+            value = inputs[key]
             logits, feats, scale = self.forward_cue(value, key)
             ret[key] = {
                 'logits': logits, 
