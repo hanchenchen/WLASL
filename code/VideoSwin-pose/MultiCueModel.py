@@ -56,7 +56,7 @@ class RGBCueModel(nn.Module):
         x = self.long_term_model(x)
         contextual_feats = x
         logits = self.pred_head(x[:, 0, :])*self.scale
-        return logits, x[:, 0, :], self.scale
+        return logits, contextual_feats, self.scale
 
 
 class OpticalFlowCueModel(nn.Module):
@@ -100,7 +100,7 @@ class OpticalFlowCueModel(nn.Module):
         x = self.long_term_model(x)
         contextual_feats = x
         logits = self.pred_head(x[:, 0, :])*self.scale
-        return logits, x[:, 0, :], self.scale
+        return logits, contextual_feats, self.scale
 
 
 class PoseCueModel(nn.Module):
@@ -130,7 +130,7 @@ class PoseCueModel(nn.Module):
         framewise_feats = x
         x = x + self.pos_emb
         x = self.long_term_model(x)
-        contextual_feats = x[:, 0, :]
+        contextual_feats = x
         logits = self.pred_head(x[:, 0, :])*self.scale
         return logits, contextual_feats, self.scale
 
@@ -152,21 +152,21 @@ class MultiCueModel(nn.Module):
                 num_classes=num_classes,
                 hidden_dim=768,
                 frame_len=frame_len,)
-            self.full_rgb_placeholder = nn.Parameter(torch.randn(1, 768))
+            self.full_rgb_type_token = nn.Parameter(torch.randn(1, 1, 768))
 
         if 'right_hand' in cue: 
             self.right_hand_model = RGBCueModel(
                 num_classes=num_classes,
                 hidden_dim=768,
                 frame_len=frame_len,)
-            self.right_hand_placeholder = nn.Parameter(torch.randn(1, 768))
+            self.right_hand_type_token = nn.Parameter(torch.randn(1, 1, 768))
 
         if 'left_hand' in cue: 
             self.left_hand_model = RGBCueModel(
                 num_classes=num_classes,
                 hidden_dim=768,
                 frame_len=frame_len,)
-            self.left_hand_placeholder = nn.Parameter(torch.randn(1, 768))
+            self.left_hand_type_token = nn.Parameter(torch.randn(1, 1, 768))
 
         if share_hand_model:
             self.right_hand_model = self.left_hand_model
@@ -176,15 +176,18 @@ class MultiCueModel(nn.Module):
                 num_classes=num_classes,
                 hidden_dim=768,
                 frame_len=frame_len,)
-            self.face_placeholder = nn.Parameter(torch.randn(1, 768))
+            self.face_type_token = nn.Parameter(torch.randn(1, 1, 768))
 
         if 'pose' in cue: 
             self.pose_model = PoseCueModel(
                 num_classes=num_classes,
                 hidden_dim=768,
                 frame_len=frame_len,)
-            self.pose_placeholder = nn.Parameter(torch.randn(1, 768))
-        glo_dim = 768*5
+            self.pose_type_token = nn.Parameter(torch.randn(1, 1, 768))
+        glo_dim = 768
+        self.pos_emb = nn.Parameter(torch.randn(1, frame_len//2*5, glo_dim))
+        encoder_layer = nn.TransformerEncoderLayer(d_model=glo_dim, nhead=8, batch_first=True)
+        self.long_term_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
         self.pred_head = nn.Sequential(
             nn.Linear(glo_dim, glo_dim),
             nn.Linear(glo_dim, num_classes),
@@ -212,10 +215,12 @@ class MultiCueModel(nn.Module):
                 'feats': feats,
                 'scale': scale,
                 }
-            feats_list.append(feats)
-        feats = torch.cat(feats_list, dim=-1)
+            feats_list.append(feats+eval(f'self.{key}_type_token'))
+        x = torch.cat(feats_list, dim=1)
+        x = x + self.pos_emb
+        feats = self.long_term_model(x)
         ret['late_fusion'] = {
-            'logits': self.pred_head(feats)*self.scale, 
+            'logits': self.pred_head(feats.mean(dim=1))*self.scale, 
             'scale': self.scale,
             }
         return ret
