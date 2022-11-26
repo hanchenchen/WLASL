@@ -3,7 +3,7 @@ import argparse
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = '6,7'
-device_ids = [0, 1]
+device_ids = [0]
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -104,7 +104,7 @@ def run(configs,
         print('loading weights {}'.format(weights))
         model.load_state_dict(torch.load(weights))
 
-    model.cuda()
+    model = model.cuda()
     model = nn.DataParallel(model, device_ids=device_ids)
 
     lr = configs.init_lr
@@ -335,7 +335,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-resized'}
 
-    save_model = '1126-40-avoid-flip-hand-imgs-39'
+    save_model = '1126-41-add-SyncBatchNorm-40'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
