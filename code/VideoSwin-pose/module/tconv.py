@@ -3,7 +3,7 @@ import copy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from module.batchnorm import SynchronizedBatchNorm1d
 
 class TemporalConv(nn.Module):
     def __init__(
@@ -39,7 +39,7 @@ class TemporalConv(nn.Module):
                         padding=int(ks[1])//2,
                     )
                 )
-                modules.append(nn.BatchNorm1d(self.hidden_size))
+                modules.append(SynchronizedBatchNorm1d(self.hidden_size))
                 modules.append(nn.ReLU(inplace=True))
         self.temporal_conv = nn.Sequential(*modules)
 

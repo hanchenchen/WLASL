@@ -15,6 +15,31 @@ from module.tconv import TemporalConv
 from einops import rearrange
 
 
+# def masked_bn(self, inputs, len_x):
+#     def pad(tensor, length):
+#         return torch.cat(
+#             [
+#                 tensor,
+#                 tensor.new(length - tensor.size(0), *tensor.size()[1:]).zero_(),
+#             ]
+#         )
+
+#     x = torch.cat(
+#         [
+#             inputs[len_x[0] * idx : len_x[0] * idx + lgt]
+#             for idx, lgt in enumerate(len_x)
+#         ]
+#     )
+#     x = self.conv2d(x)
+#     x = torch.cat(
+#         [
+#             pad(x[sum(len_x[:idx]) : sum(len_x[: idx + 1])], len_x[0])
+#             for idx, lgt in enumerate(len_x)
+#         ]
+#     )
+#     return x
+
+
 class RGBCueModel(nn.Module):
     def __init__(
         self,

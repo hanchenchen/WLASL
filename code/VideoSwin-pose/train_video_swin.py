@@ -2,8 +2,8 @@ import os
 import argparse
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = '6,7'
-device_ids = [0]
+os.environ["CUDA_VISIBLE_DEVICES"] = '4,5,6,7'
+device_ids = [0,1,2,3]
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -69,7 +69,7 @@ def run(configs,
     test_transforms = transforms.Compose([videotransforms.CenterCrop(224)])
 
     dataset = Dataset('train', root, train_transforms, hand_transforms=test_transforms)
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=configs.batch_size, shuffle=True, num_workers=0,
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=configs.batch_size, shuffle=True, num_workers=2,
                                              pin_memory=True)
     print('Train', len(dataset))
     view_list = ['camera_0', 'camera_1', 'camera_2', 'camera_3']
@@ -335,7 +335,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-resized'}
 
-    save_model = '1126-41-add-SyncBatchNorm-40'
+    save_model = 'logdir/1126-42-2-gpu-SynchronizedBatchNorm1d-41'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
