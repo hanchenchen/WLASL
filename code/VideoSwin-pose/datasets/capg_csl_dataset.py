@@ -447,7 +447,10 @@ class SampleFrames:
 
 class CAPG_CSL(data_utl.Dataset):
 
-    def __init__(self, split, root, transforms=None, num_classes=21, 
+    def __init__(self, split, root, 
+    transforms=None, 
+    hand_transforms=None, 
+    num_classes=21, 
     class_list=[],
     view_list=['camera_0', 'camera_1', 'camera_2', 'camera_3']):
         self.num_classes = num_classes
@@ -455,6 +458,8 @@ class CAPG_CSL(data_utl.Dataset):
             class_list = [i for i in range(num_classes)]
         else:
             class_list = class_list
+        if not hand_transforms:
+            hand_transforms = transforms
 
         self.transforms = transforms
         self.root = root
