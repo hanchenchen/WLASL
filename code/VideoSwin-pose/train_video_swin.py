@@ -172,7 +172,7 @@ def run(configs,
                     pred = torch.argmax(logits, dim=1)
                     for i in range(logits.shape[0]):
                         confusion_matrix_cue[key][labels[i].item(), pred[i].item()] += 1
-                
+                loss = loss + ret['mutual_distill_loss'] 
                 logits = ret['late_fusion']['logits']
                 pred = torch.argmax(logits, dim=1)
                 for i in range(logits.shape[0]):
@@ -333,9 +333,9 @@ if __name__ == '__main__':
     
     mode = 'rgb'
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
-    root = {'word': '/raid_han/signDataProcess/capg-csl-resized'}
+    root = {'word': '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20'}
 
-    save_model = '1126-41-add-SyncBatchNorm-40'
+    save_model = '1127-47-mutual-distill-41'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 

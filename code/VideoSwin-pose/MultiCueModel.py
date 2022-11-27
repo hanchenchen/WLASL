@@ -56,7 +56,7 @@ class RGBCueModel(nn.Module):
         x = self.long_term_model(x)
         contextual_feats = x
         logits = self.pred_head(x[:, 0, :])*self.scale
-        return logits, x[:, 0, :], self.scale
+        return logits, x, self.scale
 
 
 class OpticalFlowCueModel(nn.Module):
@@ -100,7 +100,7 @@ class OpticalFlowCueModel(nn.Module):
         x = self.long_term_model(x)
         contextual_feats = x
         logits = self.pred_head(x[:, 0, :])*self.scale
-        return logits, x[:, 0, :], self.scale
+        return logits, x, self.scale
 
 
 class PoseCueModel(nn.Module):
@@ -130,7 +130,7 @@ class PoseCueModel(nn.Module):
         framewise_feats = x
         x = x + self.pos_emb
         x = self.long_term_model(x)
-        contextual_feats = x[:, 0, :]
+        contextual_feats = x
         logits = self.pred_head(x[:, 0, :])*self.scale
         return logits, contextual_feats, self.scale
 
@@ -201,21 +201,31 @@ class MultiCueModel(nn.Module):
             model = eval(f'self.{cue}_model')
             return model(x)
 
+    def mutual_distill(self, ret):
+        l = 0.0
+        for x in self.cue:
+            for y in self.cue:
+                if x != y:
+                    l = l + F.mse_loss(ret[x]['hs'], ret[y]['hs'])
+        return l
+
     def forward(self, inputs):
         ret = {}
         feats_list = []
         for key in self.cue:
             value = inputs[key]
-            logits, feats, scale = self.forward_cue(value, key)
+            logits, hs, scale = self.forward_cue(value, key)
             ret[key] = {
                 'logits': logits, 
-                'feats': feats,
+                'feats': hs[:, 0, :],
+                'hs': hs,
                 'scale': scale,
                 }
-            feats_list.append(feats)
+            feats_list.append(hs[:, 0, :])
         feats = torch.cat(feats_list, dim=-1)
         ret['late_fusion'] = {
             'logits': self.pred_head(feats)*self.scale, 
             'scale': self.scale,
             }
+        ret['mutual_distill_loss'] = self.mutual_distill(ret)
         return ret
