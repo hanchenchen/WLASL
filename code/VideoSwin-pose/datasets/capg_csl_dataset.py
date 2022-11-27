@@ -96,9 +96,9 @@ def load_rgb_frames(frame_paths, sampler, kpts_2d, img_norm):
 
     for i in list(indexes):
         img = cv2.imread(frame_paths[i])[:, :, [2, 1, 0]]
-        right_hand_img = cv2.imread(frame_paths[i].replace('capg-csl-resized', 'capg-csl-rgb-right-hand'))[:, :, [2, 1, 0]]
-        left_hand_img = cv2.imread(frame_paths[i].replace('capg-csl-resized', 'capg-csl-rgb-left-hand'))[:, :, [2, 1, 0]]
-        face_hand_img = cv2.imread(frame_paths[i].replace('capg-csl-resized', 'capg-csl-rgb-face'))[:, :, [2, 1, 0]]
+        right_hand_img = cv2.imread(frame_paths[i].replace('rgb-480x320', 'right-hand-224x224'))[:, :, [2, 1, 0]]
+        left_hand_img = cv2.imread(frame_paths[i].replace('rgb-480x320', 'left-hand-224x224'))[:, :, [2, 1, 0]]
+        face_hand_img = cv2.imread(frame_paths[i].replace('rgb-480x320', 'face-224x224'))[:, :, [2, 1, 0]]
         
         # img = cv2.cvtColor(img, cv2.COLOR_BAYER_GR2RGB)
         # cv2.imwrite('test.jpg', img)
@@ -201,7 +201,7 @@ def make_dataset(split, root, num_classes,
     vid_root = root['word']
 
     i = 0
-    for path in sorted(glob(f"{vid_root}/*/*/*/camera_*")):
+    for path in sorted(glob(f"{vid_root}/rgb-480x320/*/*/*/camera_*")):
         if path[-8:-1] != 'camera_':
             continue
         label, signer, record_time, view = path.split('/')[-4:]
@@ -469,7 +469,7 @@ class CAPG_CSL(data_utl.Dataset):
             mean=[0.485, 0.456, 0.406],
             std=[0.229, 0.224, 0.225],
         )
-        with open(root['word']+'/2dkeypoints.json', 'r') as f:
+        with open(root['word']+'/openpose-res-1920x1280/2dkeypoints.json', 'r') as f:
             self.kpts_2d = json.load(f)
         self.data = make_dataset(split, root, 
         num_classes=self.num_classes, 
