@@ -13,6 +13,7 @@ import torch.distributed as dist
 from module.video_swin_transformer import SwinTransformer3D
 from module.tconv import TemporalConv
 from einops import rearrange
+import torchvision.models as models
 
 
 class RGBCueModel(nn.Module):
@@ -23,34 +24,19 @@ class RGBCueModel(nn.Module):
         frame_len,
     ):
         super(RGBCueModel, self).__init__()
-        self.short_term_model = SwinTransformer3D(
-            pretrained='checkpoints/swin/swin_tiny_patch244_window877_kinetics400_1k.pth',
-            pretrained2d=False,
-            patch_size=(2,4,4),
-            embed_dim=96,
-            depths=[2, 2, 6, 2],
-            num_heads=[3, 6, 12, 24],
-            window_size=(8,7,7),
-            mlp_ratio=4.,
-            qkv_bias=True,
-            qk_scale=None,
-            drop_rate=0.,
-            attn_drop_rate=0.,
-            drop_path_rate=0.2,
-            patch_norm=True
-        )
-        self.short_term_model.init_weights('checkpoints/swin/swin_tiny_patch244_window877_kinetics400_1k.pth')
-        self.pos_emb = nn.Parameter(torch.randn(1, frame_len//2, hidden_dim))
+        self.short_term_model = getattr(models, "resnet18")(pretrained=True)
+        self.short_term_model.fc = nn.Linear(512, hidden_dim)
+        self.pos_emb = nn.Parameter(torch.randn(1, frame_len, hidden_dim))
         encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_dim, nhead=8, batch_first=True)
         self.long_term_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
         self.pred_head = nn.Linear(hidden_dim, num_classes)
         self.scale = nn.Parameter(torch.ones(1))
 
     def forward(self, x):
-        x = rearrange(x, 'n c d h w -> n c d h w')
+        N, C, D, H, W = x.shape
+        x = x.permute(0, 2, 1, 3, 4).reshape(N*D, C, H, W)
         x = self.short_term_model(x)
-        x = rearrange(x, 'n d h w c -> n d (h w) c')
-        x = x.mean(dim=2)
+        x = x.reshape(N, D, -1)
         framewise_feats = x
         x = x + self.pos_emb
         x = self.long_term_model(x)

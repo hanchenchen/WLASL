@@ -335,7 +335,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-resized'}
 
-    save_model = '1126-41-add-SyncBatchNorm-40'
+    save_model = 'logdir/1127-45-short-term=Conv2D-41'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
