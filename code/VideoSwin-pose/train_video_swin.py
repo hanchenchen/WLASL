@@ -173,6 +173,7 @@ def run(configs,
                     for i in range(logits.shape[0]):
                         confusion_matrix_cue[key][labels[i].item(), pred[i].item()] += 1
                 loss = loss + ret['mutual_distill_loss'] 
+                scales[f"{phase}/mutual_distill_loss"] = ret['mutual_distill_loss'].item()
                 logits = ret['late_fusion']['logits']
                 pred = torch.argmax(logits, dim=1)
                 for i in range(logits.shape[0]):
