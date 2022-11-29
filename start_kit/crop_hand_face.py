@@ -6,25 +6,29 @@ import os
 import cv2
 import torch
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-src_dire = "/raid_han/signDataProcess/capg-csl-rgb-21-100"
-face_dire = f"{src_dire}/face"
-left_hand_dire = f"{src_dire}/left-hand"
-right_hand_dire = f"{src_dire}/right-hand"
+root = "/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100"
+src_dire = f"{root}/full-rgb"
+resized_dire = f"{root}/rgb-480x320"
+face_dire = f"{root}/face-224x224"
+left_hand_dire = f"{root}/left-hand-224x224"
+right_hand_dire = f"{root}/right-hand-224x224"
 
-with open(src_dire+'/2dkeypoints.json', 'r') as f:
-    kpts_2d = json.load(f)
 length = 224
 
 for path in tqdm(glob(f"{src_dire}/*/*/*/*/*.jpg")):
     if '.jpg' not in path:
         continue
     img = cv2.imread(path)
-    img = cv2.cvtColor(img, cv2.COLOR_BayerRG2RGB)
+    print(img.shape)
+    # img = cv2.cvtColor(img, cv2.COLOR_BayerRG2RGB)
+    resized_img = cv2.resize(img, dsize=(1920//4, 1280//4))
+    os.makedirs(os.path.dirname(path.replace(src_dire, resized_dire)), exist_ok=True)
+    cv2.imwrite(path.replace(src_dire, resized_dire), resized_img)
 
     w, h, c = img.shape
-    label, signer, record_time, view, img_name = path.split('/')[-5:]
-    key = f"{label}/{signer}/{record_time}"
-    pose = kpts_2d[key][view][img_name]
+    # label, signer, record_time, view, img_name = path.split('/')[-5:]
+    # key = f"{label}/{signer}/{record_time}"
+    pose = json.load(open(path.replace('full-rgb', 'openpose-res').replace('.jpg', '_keypoints.json'), 'r'))['people'][0]
     shoudler = abs(pose['pose_keypoints_2d'][2*3] - pose['pose_keypoints_2d'][5*3])
     pose_keypoints_2d = torch.tensor(pose['pose_keypoints_2d'])
     face_keypoints_2d = torch.tensor(pose['face_keypoints_2d']).reshape(-1, 3)[:, :2]
@@ -52,7 +56,6 @@ for path in tqdm(glob(f"{src_dire}/*/*/*/*/*.jpg")):
     if right_img is not None:
         os.makedirs(os.path.dirname(path.replace(src_dire, right_hand_dire)), exist_ok=True)
         cv2.imwrite(path.replace(src_dire, right_hand_dire), right_img)
-        # img = cv2.cvtColor(img, cv2.COLOR_BayerRG2RGB)
         cv2.imwrite('right_img.jpg', right_img)
 
     # exit()
