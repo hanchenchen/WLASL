@@ -2,7 +2,7 @@ import os
 import argparse
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = '6,7'
+os.environ["CUDA_VISIBLE_DEVICES"] = '5'
 device_ids = [0]
 import torch
 import torch.nn as nn
@@ -25,7 +25,7 @@ from glob import glob
 import pytz
 # from datasets.nslt_dataset import NSLT as Dataset
 # from datasets.nslt_dataset import NSLT as Dataset
-from datasets.capg_csl_dataset import CAPG_CSL as Dataset
+from datasets.capg_csl_dataset_320x320 import CAPG_CSL as Dataset
 import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -338,7 +338,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20'}
 
-    save_model = 'logdir/train_liya/1129-58=51-multual-distill-func=cosine-47'
+    save_model = 'logdir/train_liya/1129-59-320x320-58=51'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
