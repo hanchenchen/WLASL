@@ -172,8 +172,10 @@ def run(configs,
                     pred = torch.argmax(logits, dim=1)
                     for i in range(logits.shape[0]):
                         confusion_matrix_cue[key][labels[i].item(), pred[i].item()] += 1
-                loss = loss + ret['mutual_distill_loss'] 
-                scales[f"{phase}/mutual_distill_loss"] = ret['mutual_distill_loss'].item()
+                # loss = loss + ret['mutual_distill_loss/framewise'] 
+                loss = loss + ret['mutual_distill_loss/contextual'] 
+                # scales[f"{phase}/mutual_distill_loss/framewise"] = ret['mutual_distill_loss/framewise'].item()
+                scales[f"{phase}/mutual_distill_loss/contextual"] = ret['mutual_distill_loss/contextual'].item()
                 logits = ret['late_fusion']['logits']
                 pred = torch.argmax(logits, dim=1)
                 for i in range(logits.shape[0]):
@@ -336,7 +338,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20'}
 
-    save_model = 'logdir/1129-49-cross-vaidtion-47-mutual-distill-41'
+    save_model = 'logdir/train_maodonglai/1129-51-multual-distill-func=cosine-47'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
