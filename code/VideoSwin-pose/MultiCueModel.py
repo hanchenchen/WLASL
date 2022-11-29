@@ -206,7 +206,7 @@ class MultiCueModel(nn.Module):
         for x in ['pose']:
             for y in ['full_rgb', 'right_hand', 'left_hand', 'face', 'pose']:
                 if x != y:
-                    l = l - F.cosine_similarity(ret[x][key], ret[y][key]).mean()
+                    l = l - F.cosine_similarity(ret[x][key].detach(), ret[y][key]).mean()
         return l
 
     def forward(self, inputs):
