@@ -2,7 +2,7 @@ import os
 import argparse
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = '6,7'
+os.environ["CUDA_VISIBLE_DEVICES"] = '6'
 device_ids = [0]
 import torch
 import torch.nn as nn
@@ -173,7 +173,7 @@ def run(configs,
                     for i in range(logits.shape[0]):
                         confusion_matrix_cue[key][labels[i].item(), pred[i].item()] += 1
                 # loss = loss + ret['mutual_distill_loss/framewise'] 
-                loss = loss + ret['mutual_distill_loss/contextual'] 
+                # loss = loss + ret['mutual_distill_loss/contextual'] 
                 # scales[f"{phase}/mutual_distill_loss/framewise"] = ret['mutual_distill_loss/framewise'].item()
                 scales[f"{phase}/mutual_distill_loss/contextual"] = ret['mutual_distill_loss/contextual'].item()
                 logits = ret['late_fusion']['logits']
@@ -338,7 +338,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20'}
 
-    save_model = '1129-51-multual-distill-func=cosine-47'
+    save_model = 'logdir/1129-52-wo-multual-distill-51'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
