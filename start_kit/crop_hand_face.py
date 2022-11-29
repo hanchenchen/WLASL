@@ -6,8 +6,8 @@ import os
 import cv2
 import torch
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-root = "/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100"
-src_dire = f"{root}/full-rgb"
+root = "/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20"
+src_dire = f"{root}/rgb-1920x1280"
 resized_dire = f"{root}/rgb-320x320"
 face_dire = f"{root}/face-224x224"
 left_hand_dire = f"{root}/left-hand-224x224"
@@ -24,7 +24,7 @@ for path in tqdm(glob(f"{src_dire}/*/*/*/*/*.jpg")):
     w, h, c = img.shape
     # label, signer, record_time, view, img_name = path.split('/')[-5:]
     # key = f"{label}/{signer}/{record_time}"
-    pose = json.load(open(path.replace('full-rgb', 'openpose-res').replace('.jpg', '_keypoints.json'), 'r'))['people'][0]
+    pose = json.load(open(path.replace('rgb-1920x1280', 'openpose-res').replace('.jpg', '_keypoints.json'), 'r'))['people'][0]
 
     # img = cv2.cvtColor(img, cv2.COLOR_BayerRG2RGB)
     resized_img = cv2.resize(img, dsize=(1920//4, 1280//4))
