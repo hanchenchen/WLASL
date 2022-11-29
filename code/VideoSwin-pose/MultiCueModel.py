@@ -203,8 +203,8 @@ class MultiCueModel(nn.Module):
 
     def mutual_distill(self, ret, key):
         l = 0.0
-        for x in self.cue:
-            for y in self.cue:
+        for x in ['full_rgb', 'pose']:
+            for y in ['full_rgb', 'right_hand', 'left_hand', 'face', 'pose']:
                 if x != y:
                     l = l - F.cosine_similarity(ret[x][key], ret[y][key]).mean()
         return l
