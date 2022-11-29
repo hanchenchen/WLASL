@@ -338,7 +338,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20'}
 
-    save_model = '1129-51-multual-distill-func=cosine-47'
+    save_model = 'logdir/train_liya/1129-58=51-multual-distill-func=cosine-47'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
