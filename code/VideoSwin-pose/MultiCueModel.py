@@ -56,7 +56,7 @@ class RGBCueModel(nn.Module):
         x = self.long_term_model(x)
         contextual_feats = x
         logits = self.pred_head(x[:, 0, :])*self.scale
-        return logits, x, self.scale
+        return logits, framewise_feats, contextual_feats, self.scale
 
 
 class OpticalFlowCueModel(nn.Module):
@@ -100,7 +100,7 @@ class OpticalFlowCueModel(nn.Module):
         x = self.long_term_model(x)
         contextual_feats = x
         logits = self.pred_head(x[:, 0, :])*self.scale
-        return logits, x, self.scale
+        return logits, framewise_feats, contextual_feats, self.scale
 
 
 class PoseCueModel(nn.Module):
@@ -132,7 +132,7 @@ class PoseCueModel(nn.Module):
         x = self.long_term_model(x)
         contextual_feats = x
         logits = self.pred_head(x[:, 0, :])*self.scale
-        return logits, contextual_feats, self.scale
+        return logits, framewise_feats, contextual_feats, self.scale
 
 
 class MultiCueModel(nn.Module):
@@ -201,12 +201,12 @@ class MultiCueModel(nn.Module):
             model = eval(f'self.{cue}_model')
             return model(x)
 
-    def mutual_distill(self, ret):
+    def mutual_distill(self, ret, key):
         l = 0.0
         for x in self.cue:
             for y in self.cue:
                 if x != y:
-                    l = l + F.mse_loss(ret[x]['hs'], ret[y]['hs'])
+                    l = l + F.mse_loss(ret[x][key], ret[y][key])
         return l
 
     def forward(self, inputs):
@@ -214,18 +214,19 @@ class MultiCueModel(nn.Module):
         feats_list = []
         for key in self.cue:
             value = inputs[key]
-            logits, hs, scale = self.forward_cue(value, key)
+            logits, framewise_feats, contextual_feats, scale = self.forward_cue(value, key)
             ret[key] = {
                 'logits': logits, 
-                'feats': hs[:, 0, :],
-                'hs': hs,
+                'framewise_feats': framewise_feats,
+                'contextual_feats': contextual_feats,
                 'scale': scale,
                 }
-            feats_list.append(hs[:, 0, :])
+            feats_list.append(contextual_feats[:, 0, :])
         feats = torch.cat(feats_list, dim=-1)
         ret['late_fusion'] = {
             'logits': self.pred_head(feats)*self.scale, 
             'scale': self.scale,
             }
-        ret['mutual_distill_loss'] = self.mutual_distill(ret)
+        ret['mutual_distill_loss/framewise'] = self.mutual_distill(ret, 'framewise_feats')
+        ret['mutual_distill_loss/contextual'] = self.mutual_distill(ret, 'contextual_feats')
         return ret
