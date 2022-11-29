@@ -13,7 +13,7 @@ from torch.optim.lr_scheduler import StepLR, MultiStepLR
 import wandb
 from torchvision import transforms
 import videotransforms
-
+import random
 import numpy as np
 
 from configs import Config
@@ -40,8 +40,12 @@ parser.add_argument('--num_class', type=int)
 
 args = parser.parse_args()
 
-torch.manual_seed(0)
-np.random.seed(0)
+seed = 0
+random.seed(seed)
+np.random.seed(seed)
+torch.manual_seed(seed)
+torch.cuda.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)
 
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
@@ -338,7 +342,7 @@ if __name__ == '__main__':
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     root = {'word': '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20'}
 
-    save_model = 'logdir/1129-55=54-avoid-local-to-local-53=52'
+    save_model = 'logdir/1129-56-pose-distill-to-others-55=54'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
