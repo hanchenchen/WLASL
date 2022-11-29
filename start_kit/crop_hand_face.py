@@ -19,6 +19,8 @@ for path in tqdm(glob(f"{src_dire}/*/*/*/*/*.jpg")):
     if '.jpg' not in path:
         continue
     img = cv2.imread(path)
+    img = cv2.cvtColor(img, cv2.COLOR_BayerRG2RGB)
+
     w, h, c = img.shape
     label, signer, record_time, view, img_name = path.split('/')[-5:]
     key = f"{label}/{signer}/{record_time}"
