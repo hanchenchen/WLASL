@@ -206,7 +206,7 @@ class MultiCueModel(nn.Module):
         for x in self.cue:
             for y in self.cue:
                 if x != y:
-                    l = l + F.mse_loss(ret[x][key], ret[y][key])
+                    l = l - F.cosine_similarity(ret[x][key], ret[y][key]).mean()
         return l
 
     def forward(self, inputs):
@@ -227,6 +227,6 @@ class MultiCueModel(nn.Module):
             'logits': self.pred_head(feats)*self.scale, 
             'scale': self.scale,
             }
-        ret['mutual_distill_loss/framewise'] = self.mutual_distill(ret, 'framewise_feats')
+        # ret['mutual_distill_loss/framewise'] = self.mutual_distill(ret, 'framewise_feats')
         ret['mutual_distill_loss/contextual'] = self.mutual_distill(ret, 'contextual_feats')
         return ret
