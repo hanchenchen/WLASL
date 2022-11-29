@@ -8,27 +8,38 @@ import torch
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 root = "/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100"
 src_dire = f"{root}/full-rgb"
-resized_dire = f"{root}/rgb-480x320"
+resized_dire = f"{root}/rgb-320x320"
 face_dire = f"{root}/face-224x224"
 left_hand_dire = f"{root}/left-hand-224x224"
 right_hand_dire = f"{root}/right-hand-224x224"
 
 length = 224
+resized_length = 320
 
 for path in tqdm(glob(f"{src_dire}/*/*/*/*/*.jpg")):
     if '.jpg' not in path:
         continue
     img = cv2.imread(path)
     print(img.shape)
-    # img = cv2.cvtColor(img, cv2.COLOR_BayerRG2RGB)
-    resized_img = cv2.resize(img, dsize=(1920//4, 1280//4))
-    os.makedirs(os.path.dirname(path.replace(src_dire, resized_dire)), exist_ok=True)
-    cv2.imwrite(path.replace(src_dire, resized_dire), resized_img)
-
     w, h, c = img.shape
     # label, signer, record_time, view, img_name = path.split('/')[-5:]
     # key = f"{label}/{signer}/{record_time}"
     pose = json.load(open(path.replace('full-rgb', 'openpose-res').replace('.jpg', '_keypoints.json'), 'r'))['people'][0]
+
+    # img = cv2.cvtColor(img, cv2.COLOR_BayerRG2RGB)
+    resized_img = cv2.resize(img, dsize=(1920//4, 1280//4))
+    body_center_0 = int(pose['pose_keypoints_2d'][1*2 + 1])//4
+    if body_center_0 + resized_length//2 > 1920//4:
+        body_center_0 = 1920//4 - resized_length//2
+    if body_center_0 - resized_length//2 < 0:
+        body_center_0 = resized_length//2
+
+    face_img = resized_img[:, int(body_center_0)-resized_length//2:int(body_center_0)+resized_length//2]
+    os.makedirs(os.path.dirname(path.replace(src_dire, resized_dire)), exist_ok=True)
+    cv2.imwrite(path.replace(src_dire, resized_dire), resized_img)
+    cv2.imwrite('resized_dire.jpg', face_img)
+
+    continue
     shoudler = abs(pose['pose_keypoints_2d'][2*3] - pose['pose_keypoints_2d'][5*3])
     pose_keypoints_2d = torch.tensor(pose['pose_keypoints_2d'])
     face_keypoints_2d = torch.tensor(pose['face_keypoints_2d']).reshape(-1, 3)[:, :2]
