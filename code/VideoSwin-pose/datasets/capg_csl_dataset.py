@@ -86,10 +86,23 @@ def load_rgb_frames(frame_paths, sampler, img_norm, img_index_map, index_view_im
     poses = []
     indexes = sampler({'start_index': 0, 'total_frames': len(frame_paths)})['frame_inds']
     label, signer, record_time, view, img_name = frame_paths[0].split('/')[-5:]
-    pose_view = random.choice(['camera_0', 'camera_1', 'camera_2', 'camera_3'])
-    right_hand_view = random.choice(['camera_0', 'camera_1', 'camera_2', 'camera_3'])
-    left_hand_view = random.choice(['camera_0', 'camera_1', 'camera_2', 'camera_3'])
-    face_view = random.choice(['camera_0', 'camera_1', 'camera_2', 'camera_3'])
+    if torch.rand(()) < 0.2:
+        pose_view = random.choice(['camera_0', 'camera_1', 'camera_2', 'camera_3'])
+    else:
+        pose_view = view
+    if torch.rand(()) < 0.2:
+        right_hand_view = random.choice(['camera_0', 'camera_1', 'camera_2', 'camera_3'])
+    else:
+        right_hand_view = view
+    if torch.rand(()) < 0.2:
+        left_hand_view = random.choice(['camera_0', 'camera_1', 'camera_2', 'camera_3'])
+    else:
+        left_hand_view = view
+    if torch.rand(()) < 0.2:
+        face_view = random.choice(['camera_0', 'camera_1', 'camera_2', 'camera_3'])
+    else:
+        face_view = view
+
     if split!="train":
         pose_path = frame_paths[0].replace('rgb-480x320', 'openpose-res').replace('.jpg', '_keypoints.json')
     else:
