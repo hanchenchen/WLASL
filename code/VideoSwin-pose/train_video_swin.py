@@ -228,12 +228,12 @@ def run(configs,
                 save_path = save_model + f'confusion_matrix/{phase}/' 
                 os.makedirs(save_path, exist_ok=True)
                 confusion_matrix_fig(confusion_matrix, 
-                x_labels=[i for i in range(21)], 
-                y_labels=[i for i in range(21)], 
+                x_labels=[i for i in range(num_classes)], 
+                y_labels=[i for i in range(num_classes)], 
                 save_path=save_path+f'{epoch}.png')
                 confusion_matrix_fig(confusion_matrix_float, 
-                x_labels=[i for i in range(21)], 
-                y_labels=[i for i in range(21)], 
+                x_labels=[i for i in range(num_classes)], 
+                y_labels=[i for i in range(num_classes)], 
                 save_path=save_path+f'{epoch}-float.png')
 
                 val_score = float(np.trace(confusion_matrix)) / np.sum(confusion_matrix)
@@ -265,12 +265,12 @@ def run(configs,
                 save_path = save_model + f'confusion_matrix/{phase}/' 
                 os.makedirs(save_path, exist_ok=True)
                 confusion_matrix_fig(confusion_matrix, 
-                x_labels=[i for i in range(21)], 
-                y_labels=[i for i in range(21)], 
+                x_labels=[i for i in range(num_classes)], 
+                y_labels=[i for i in range(num_classes)], 
                 save_path=save_path+f'{epoch}.png')
                 confusion_matrix_fig(confusion_matrix_float, 
-                x_labels=[i for i in range(21)], 
-                y_labels=[i for i in range(21)], 
+                x_labels=[i for i in range(num_classes)], 
+                y_labels=[i for i in range(num_classes)], 
                 save_path=save_path+f'{epoch}-float.png')
                 val_score = float(np.trace(confusion_matrix)) / np.sum(confusion_matrix)
                 acc_cue = {f"{phase}/Accu/"+key: float(np.trace(confusion_matrix_cue[key])) / np.sum(confusion_matrix_cue[key]) for key in confusion_matrix_cue.keys()}
