@@ -24,7 +24,7 @@ def video_to_tensor(pic):
     return torch.from_numpy(pic.transpose([3, 0, 1, 2]))
 
 
-def pose_filtering(video_path, kpts_2d):
+def pose_filtering(video_path):
 
     frame_paths = sorted(glob(f"{video_path}/*.jpg"))
     
@@ -32,19 +32,19 @@ def pose_filtering(video_path, kpts_2d):
     key = f"{label}/{signer}/{record_time}"
 
     start_index = 0
-    img_pose = kpts_2d[key][view]
-    img_list = sorted(list(kpts_2d[key][view].keys()))
-    cur_pose = img_pose[img_list[0]]['pose_keypoints_2d']
+    cur_img = frame_paths[0]
+    cur_pose = json.load(open(cur_img.replace('rgb-480x320', 'openpose-res').replace('.jpg', '_keypoints.json'), 'r'))['people'][0]['pose_keypoints_2d']
     start_left_wrist_x = cur_pose[4*3]
     start_left_wrist_y = cur_pose[4*3+1]
     start_right_wrist_x = cur_pose[7*3]
     start_right_wrist_y = cur_pose[7*3+1]
-    for img_index in range(1, len(img_list)):
-        cur_pos = img_pose[img_list[img_index]]['pose_keypoints_2d']
-        left_wrist_x = cur_pos[4*3]
-        left_wrist_y = cur_pos[4*3+1]
-        right_wrist_x = cur_pos[7*3]
-        right_wrist_y = cur_pos[7*3+1]
+    for img_index in range(1, len(frame_paths)):
+        cur_img = frame_paths[img_index]
+        cur_pose = json.load(open(cur_img.replace('rgb-480x320', 'openpose-res').replace('.jpg', '_keypoints.json'), 'r'))['people'][0]['pose_keypoints_2d']
+        left_wrist_x = cur_pose[4*3]
+        left_wrist_y = cur_pose[4*3+1]
+        right_wrist_x = cur_pose[7*3]
+        right_wrist_y = cur_pose[7*3+1]
         x = max(abs(left_wrist_x - start_left_wrist_x), abs(right_wrist_x - start_right_wrist_x))
         y = max(abs(left_wrist_y - start_left_wrist_y), abs(right_wrist_y - start_right_wrist_y))
 
@@ -53,18 +53,20 @@ def pose_filtering(video_path, kpts_2d):
         if max(x, y) > 40:
             start_index = img_index
             break
-    end_index = len(img_list) - 1
-    cur_pose = img_pose[img_list[end_index]]['pose_keypoints_2d']
+    end_index = len(frame_paths) - 1
+    cur_img = frame_paths[end_index]
+    cur_pose = json.load(open(cur_img.replace('rgb-480x320', 'openpose-res').replace('.jpg', '_keypoints.json'), 'r'))['people'][0]['pose_keypoints_2d']
     start_left_wrist_x = cur_pose[4*3]
     start_left_wrist_y = cur_pose[4*3+1]
     start_right_wrist_x = cur_pose[7*3]
     start_right_wrist_y = cur_pose[7*3+1]
     for img_index in range(end_index, -1, -1):
-        cur_pos = img_pose[img_list[img_index]]['pose_keypoints_2d']
-        left_wrist_x = cur_pos[4*3]
-        left_wrist_y = cur_pos[4*3+1]
-        right_wrist_x = cur_pos[7*3]
-        right_wrist_y = cur_pos[7*3+1]
+        cur_img = frame_paths[img_index]
+        cur_pose = json.load(open(cur_img.replace('rgb-480x320', 'openpose-res').replace('.jpg', '_keypoints.json'), 'r'))['people'][0]['pose_keypoints_2d']
+        left_wrist_x = cur_pose[4*3]
+        left_wrist_y = cur_pose[4*3+1]
+        right_wrist_x = cur_pose[7*3]
+        right_wrist_y = cur_pose[7*3+1]
         x = max(abs(left_wrist_x - start_left_wrist_x), abs(right_wrist_x - start_right_wrist_x))
         y = max(abs(left_wrist_y - start_left_wrist_y), abs(right_wrist_y - start_right_wrist_y))
 
@@ -73,20 +75,26 @@ def pose_filtering(video_path, kpts_2d):
         if max(x, y) > 40:
             end_index = img_index
             break
-    # print(video_path, start_index, end_index, len(img_list))
+    # print(video_path, start_index, end_index, len(frame_paths))
     return frame_paths[start_index:end_index]
 
-def load_rgb_frames(frame_paths, sampler, kpts_2d, img_norm):
+def load_rgb_frames(frame_paths, sampler, img_norm, img_index_map, index_view_img_map, split):
     frames = []
     right_hand = []
     left_hand = []
     face = []
     poses = []
     indexes = sampler({'start_index': 0, 'total_frames': len(frame_paths)})['frame_inds']
-
     label, signer, record_time, view, img_name = frame_paths[0].split('/')[-5:]
-    key = f"{label}/{signer}/{record_time}"
-    pose = kpts_2d[key][view][img_name]
+    pose_view = random.choice(['camera_0', 'camera_1', 'camera_2', 'camera_3'])
+    right_hand_view = random.choice(['camera_0', 'camera_1', 'camera_2', 'camera_3'])
+    left_hand_view = random.choice(['camera_0', 'camera_1', 'camera_2', 'camera_3'])
+    face_view = random.choice(['camera_0', 'camera_1', 'camera_2', 'camera_3'])
+    if split!="train":
+        pose_path = frame_paths[0].replace('rgb-480x320', 'openpose-res').replace('.jpg', '_keypoints.json')
+    else:
+        pose_path = view_aug(frame_paths[0], img_index_map, index_view_img_map, pose_view).replace('rgb-480x320', 'openpose-res').replace('.jpg', '_keypoints.json')
+    pose = json.load(open(pose_path, 'r'))['people'][0]
     shoudler = (pose['pose_keypoints_2d'][2*3] - pose['pose_keypoints_2d'][5*3])**2
     shoudler += (pose['pose_keypoints_2d'][2*3+1] - pose['pose_keypoints_2d'][5*3+1])**2
     shoudler = shoudler**0.5
@@ -96,9 +104,21 @@ def load_rgb_frames(frame_paths, sampler, kpts_2d, img_norm):
 
     for i in list(indexes):
         img = cv2.imread(frame_paths[i])[:, :, [2, 1, 0]]
-        right_hand_img = cv2.imread(frame_paths[i].replace('rgb-480x320', 'right-hand-224x224'))[:, :, [2, 1, 0]]
-        left_hand_img = cv2.imread(frame_paths[i].replace('rgb-480x320', 'left-hand-224x224'))[:, :, [2, 1, 0]]
-        face_hand_img = cv2.imread(frame_paths[i].replace('rgb-480x320', 'face-224x224'))[:, :, [2, 1, 0]]
+        if split!="train":
+            right_hand_path = frame_paths[i].replace('rgb-480x320', 'right-hand-224x224')
+        else:
+            right_hand_path = view_aug(frame_paths[i], img_index_map, index_view_img_map, right_hand_view).replace('rgb-480x320', 'right-hand-224x224')
+        right_hand_img = cv2.imread(right_hand_path)[:, :, [2, 1, 0]]
+        if split!="train":
+            left_hand_path = frame_paths[i].replace('rgb-480x320', 'left-hand-224x224')
+        else:
+            left_hand_path = view_aug(frame_paths[i], img_index_map, index_view_img_map, left_hand_view).replace('rgb-480x320', 'left-hand-224x224')
+        left_hand_img = cv2.imread(left_hand_path)[:, :, [2, 1, 0]]
+        if split!="train":
+            face_path = frame_paths[i].replace('rgb-480x320', 'face-224x224')
+        else:
+            face_path = view_aug(frame_paths[i], img_index_map, index_view_img_map, face_view).replace('rgb-480x320', 'face-224x224')
+        face_hand_img = cv2.imread(face_path)[:, :, [2, 1, 0]]
         
         # img = cv2.cvtColor(img, cv2.COLOR_BAYER_GR2RGB)
         # cv2.imwrite('test.jpg', img)
@@ -122,9 +142,11 @@ def load_rgb_frames(frame_paths, sampler, kpts_2d, img_norm):
         left_hand.append(np.asarray(left_hand_img, dtype=np.float32))
         face.append(np.asarray(face_hand_img, dtype=np.float32))
 
-        label, signer, record_time, view, img_name = frame_paths[i].split('/')[-5:]
-        key = f"{label}/{signer}/{record_time}"
-        pose = kpts_2d[key][view][img_name]
+        if split!="train":
+            pose_path = frame_paths[i].replace('rgb-480x320', 'openpose-res').replace('.jpg', '_keypoints.json')
+        else:
+            pose_path = view_aug(frame_paths[i], img_index_map, index_view_img_map, face_view).replace('rgb-480x320', 'openpose-res').replace('.jpg', '_keypoints.json')
+        pose = json.load(open(pose_path, 'r'))['people'][0]
         pose_keypoints_2d = torch.tensor(pose['pose_keypoints_2d']).reshape(-1, 3)[:, :2].reshape(-1)
         face_keypoints_2d = torch.tensor(pose['face_keypoints_2d']).reshape(-1, 3)[:, :2].reshape(-1)
         hand_left_keypoints_2d = torch.tensor(pose['hand_left_keypoints_2d']).reshape(-1, 3)[:, :2].reshape(-1)
@@ -191,45 +213,70 @@ def load_flow_frames(image_dir, vid, start, num):
     return np.asarray(frames, dtype=np.float32)
 
 
+def record_view_map(video_path, img_index_map, index_view_img_map):
+    frame_paths = sorted(glob(f"{video_path}/*.jpg"))
+    
+    label, signer, record_time, view = video_path.split('/')[-4:]
+    for i in range(len(frame_paths)):
+        label, signer, record_time, view, img_name = frame_paths[i].split('/')[-5:]
+        
+        img_index_map[img_name] = i
+        if record_time not in index_view_img_map:
+            index_view_img_map[record_time] = {}
+        if i not in index_view_img_map[record_time]:
+            index_view_img_map[record_time][i] = {}
+        index_view_img_map[record_time][i][view] = frame_paths[i]
+    return img_index_map, index_view_img_map
+
+def view_aug(frame_path, img_index_map, index_view_img_map, view):
+    label, signer, record_time, _, img_name = frame_path.split('/')[-5:]
+    img_idx = img_index_map[img_name]
+    # print('input', frame_path, 'output', index_view_img_map[record_time][img_idx][view])
+    frame_path = index_view_img_map[record_time][img_idx][view]
+    return frame_path
+
 def make_dataset(split, root, num_classes, 
-    kpts_2d, 
     view_list,
     class_list,
     ):
 
     dataset = []
-    vid_root = root['word']
+    vid_root_list = root['word']
+    img_index_map = {}
+    index_view_img_map = {}
 
     i = 0
-    for path in sorted(glob(f"{vid_root}/rgb-480x320/*/*/*/camera_*")):
-        if path[-8:-1] != 'camera_':
-            continue
-        label, signer, record_time, view = path.split('/')[-4:]
-        if view not in view_list:
-            continue
-        if int(label) not in class_list:
-            continue
-        if int(label) > num_classes:
-            continue
-        # if split == 'train':
-        #     if view not in ['camera_0', 'camera_1', 'camera_3']:
-        #         continue
-        # else:
-        #     if view not in ['camera_2']:
-        #         continue
-        # print(label, signer, record_time, view)
-        if split == 'train':
-            if signer not in ['liya']:
+    for vid_root in vid_root_list:
+        for path in sorted(glob(f"{vid_root}/rgb-480x320/*/*/*/camera_*")):
+            if path[-8:-1] != 'camera_':
                 continue
-        else:
-            if signer not in ['maodonglai']:
+            label, signer, record_time, view = path.split('/')[-4:]
+            if view not in view_list:
                 continue
-        label = int(label)
-        
-        dataset.append((label, path, pose_filtering(path, kpts_2d)))
-        i += 1
+            if int(label) not in class_list:
+                continue
+            if int(label) > num_classes:
+                continue
+            # if split == 'train':
+            #     if view not in ['camera_0', 'camera_1', 'camera_3']:
+            #         continue
+            # else:
+            #     if view not in ['camera_2']:
+            #         continue
+            # print(label, signer, record_time, view)
+            if split == 'train':
+                if signer not in ['liya']:
+                    continue
+                img_index_map, index_view_img_map = record_view_map(path, img_index_map, index_view_img_map)
+            else:
+                if signer not in ['maodonglai']:
+                    continue
+            label = int(label)
+            
+            dataset.append((label, path, pose_filtering(path)))
+            i += 1
 
-    return dataset
+    return dataset, img_index_map, index_view_img_map
 
 
 def get_num_class(split_file):
@@ -463,17 +510,16 @@ class CAPG_CSL(data_utl.Dataset):
 
         self.transforms = transforms
         self.root = root
+        self.split = split
         self.total_frames = 32
         self.sample_frame = SampleFrames(clip_len=1, num_clips=self.total_frames, test_mode=split!="train")
         self.img_norm = T.Normalize(
             mean=[0.485, 0.456, 0.406],
             std=[0.229, 0.224, 0.225],
         )
-        with open(root['word']+'/openpose-res-1920x1280/2dkeypoints.json', 'r') as f:
-            self.kpts_2d = json.load(f)
-        self.data = make_dataset(split, root, 
+
+        self.data, self.img_index_map, self.index_view_img_map = make_dataset(split, root, 
         num_classes=self.num_classes, 
-        kpts_2d=self.kpts_2d, 
         view_list=view_list,
         class_list=class_list,
         )
@@ -487,8 +533,7 @@ class CAPG_CSL(data_utl.Dataset):
             tuple: (image, target) where target is class_index of the target class.
         """
         label, video_path, frame_paths = self.data[index]
-
-        imgs, right_hand, left_hand, face, poses = load_rgb_frames(frame_paths, self.sample_frame, self.kpts_2d, self.img_norm)
+        imgs, right_hand, left_hand, face, poses = load_rgb_frames(frame_paths, self.sample_frame, self.img_norm, self.img_index_map, self.index_view_img_map, self.split)
 
         imgs = self.transforms(imgs)
         right_hand = self.transforms(right_hand)
