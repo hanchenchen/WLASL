@@ -25,7 +25,7 @@ from glob import glob
 import pytz
 # from datasets.nslt_dataset import NSLT as Dataset
 # from datasets.nslt_dataset import NSLT as Dataset
-from datasets.capg_csl_dataset_320x320 import CAPG_CSL as Dataset
+from datasets.capg_csl_dataset_480x320_100 import CAPG_CSL as Dataset
 import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -336,9 +336,9 @@ if __name__ == '__main__':
     
     mode = 'rgb'
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
-    root = {'word': '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20'}
+    root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100']}
 
-    save_model = 'logdir/train_liya/1129-59-320x320-58=51'
+    save_model = 'logdir/train_liya/1129-60-class=100-58=51'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
