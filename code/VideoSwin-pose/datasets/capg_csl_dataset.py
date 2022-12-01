@@ -294,11 +294,11 @@ def make_dataset(split, root, num_classes,
             #         continue
             # print(label, signer, record_time, view)
             if split == 'train':
-                if signer not in ['liya']:
+                if signer not in root[split]:
                     continue
                 img_index_map, index_view_img_map = record_view_map(path, img_index_map, index_view_img_map)
             else:
-                if signer not in ['maodonglai']:
+                if signer not in root[split]:
                     continue
             label = int(label)
             
