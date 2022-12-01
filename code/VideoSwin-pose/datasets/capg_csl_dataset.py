@@ -526,7 +526,7 @@ class CAPG_CSL(data_utl.Dataset):
     def __init__(self, split, root, 
     transforms=None, 
     hand_transforms=None, 
-    num_classes=21, 
+    num_classes=51, 
     class_list=[],
     view_list=['camera_0', 'camera_1', 'camera_2', 'camera_3']):
         self.num_classes = num_classes
