@@ -19,7 +19,7 @@ do
     dst_file=${dst_path}/$(echo $(basename "${src_file%.*}").mp4)
 
     if [ -f "${dst_file}" ]; then
-	    echo "${i}/${total}, ${dst_file} exists."
+	    # echo "${i}/${total}, ${dst_file} exists."
 	    continue
     fi
 
@@ -28,6 +28,10 @@ do
     if [ ${extension} != "mp4" ];
     then
 	    ffmpeg -loglevel panic -i ${src_file} -vf pad="width=ceil(iw/2)*2:height=ceil(ih/2)*2" ${dst_file}
+        if [ -f "${dst_file}" ]; then
+            echo "${i}/${total}, ${dst_file} converted."
+            continue
+        fi
     else
 	    cp ${src_file} ${dst_file}
     fi

@@ -50,7 +50,8 @@ def convert_frames_to_video(frame_array, path_out, size, fps=25):
 
 def extract_frame_as_video(src_video_path, start_frame, end_frame):
     frames = video_to_frames(src_video_path)
-
+    if end_frame+1 > len(frames):
+        return None
     return frames[start_frame: end_frame+1]
 
 
@@ -72,14 +73,14 @@ def extract_all_yt_instances(content):
                 
                 yt_identifier = url[-11:]
 
-                src_video_path = os.path.join('raw_videos_mp4', yt_identifier + '.mp4')
+                src_video_path = os.path.join('raw_videos_mp4', video_id + '.mp4')
                 dst_video_path = os.path.join('videos', video_id + '.mp4')
 
                 if not os.path.exists(src_video_path):
                     continue
 
                 if os.path.exists(dst_video_path):
-                    print('{} exists.'.format(dst_video_path))
+                    # print('{} exists.'.format(dst_video_path))
                     continue
 
                 # because the JSON file indexes from 1.
@@ -92,6 +93,9 @@ def extract_all_yt_instances(content):
 
                 selected_frames = extract_frame_as_video(src_video_path, start_frame, end_frame)
                 
+                if not selected_frames:
+                    print(f'Invalid {src_video_path}')
+                    continue
                 # when OpenCV reads an image, it returns size in (h, w, c)
                 # when OpenCV creates a writer, it requres size in (w, h).
                 size = selected_frames[0].shape[:2][::-1]
@@ -106,7 +110,7 @@ def extract_all_yt_instances(content):
                 dst_video_path = os.path.join('videos', video_id + '.mp4')
 
                 if os.path.exists(dst_video_path):
-                    print('{} exists.'.format(dst_video_path))
+                    # print('{} exists.'.format(dst_video_path))
                     continue
 
                 if not os.path.exists(src_video_path):
@@ -118,7 +122,7 @@ def extract_all_yt_instances(content):
         
 def main():
     # 1. Convert .swf, .mkv file to mp4.
-    convert_everything_to_mp4()
+    # convert_everything_to_mp4()
 
     content = json.load(open('WLASL_v0.3.json'))
     extract_all_yt_instances(content)

@@ -15,3 +15,4 @@ code/I3D/archived/
 *.png
 wandb/
 archived/
+*.log

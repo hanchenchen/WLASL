@@ -4,14 +4,14 @@ import time
 import sys
 import urllib.request
 from multiprocessing.dummy import Pool
-from tqdm import tqdm
+import json
 import random
-import wget
+
 import logging
-logging.basicConfig(filename='download_{}.log'.format(int(time.time())), filemode='w', level=logging.DEBUG)
+logging.basicConfig(filename='logging/download_{}.log'.format(int(time.time())), filemode='w', level=logging.DEBUG)
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
-
+missing_ids =json.load(open('missing.json', 'r'))
 def request_video(url, referer=''):
     user_agent = 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.0.7) Gecko/2009021910 Firefox/3.0.7'
 
@@ -35,7 +35,7 @@ def save_video(data, saveto):
         f.write(data)
 
     # please be nice to the host - take pauses and avoid spamming
-    # time.sleep(random.uniform(0.5, 1.5))
+    time.sleep(random.uniform(0.5, 1.5))
 
 
 def download_youtube(url, dirname, video_id):
@@ -45,8 +45,12 @@ def download_youtube(url, dirname, video_id):
 def download_aslpro(url, dirname, video_id):
     saveto = os.path.join(dirname, '{}.swf'.format(video_id))
     if os.path.exists(saveto):
-        logging.info('{} exists at {}'.format(video_id, saveto))
-        return 
+        if video_id in missing_ids:
+            os.remove(saveto)
+            logging.info('Remove videos {}'.format(video_id))
+        else:
+            logging.info('{} exists at {}'.format(video_id, saveto))
+            return 
 
     data = request_video(url, referer='http://www.aslpro.com/cgi-bin/aslpro/aslpro.cgi')
     save_video(data, saveto)
@@ -55,16 +59,19 @@ def download_aslpro(url, dirname, video_id):
 def download_others(url, dirname, video_id):
     saveto = os.path.join(dirname, '{}.mp4'.format(video_id))
     if os.path.exists(saveto):
-        logging.info('{} exists at {}'.format(video_id, saveto))
-        return 
-    print(f'wget {url} -O {saveto}')
-    wget.download(url, saveto)
-    return
+        if video_id in missing_ids:
+            os.remove(saveto)
+            logging.info('Remove videos {}'.format(video_id))
+        else:
+            logging.info('{} exists at {}'.format(video_id, saveto))
+            return 
     
+    data = request_video(url)
+    save_video(data, saveto)
 
 
 def select_download_method(url):
-    if 'aslpro' in url or 'asl' in url:
+    if 'aslpro' in url:
         return download_aslpro
     elif 'youtube' in url or 'youtu.be' in url:
         return download_youtube
@@ -78,19 +85,16 @@ def download_nonyt_videos(indexfile, saveto='raw_videos'):
     if not os.path.exists(saveto):
         os.mkdir(saveto)
 
-    for entry in tqdm(content):
+    for entry in content:
         gloss = entry['gloss']
         instances = entry['instances']
 
-        for inst in tqdm(instances):
+        for inst in instances:
             video_url = inst['url']
             video_id = inst['video_id']
             
             logging.info('gloss: {}, video: {}.'.format(gloss, video_id))
 
-            # if 'signingsavvy' in video_url or 'aslsignbank' in video_url or 'elementalaslconcepts' in video_url:
-            #     logging.warning('Skipping signingsavvy or aslsignbank or elementalaslconcepts video {}'.format(video_id))
-            #     continue
             download_method = select_download_method(video_url)    
             
             if download_method == download_youtube:
@@ -116,40 +120,42 @@ def download_yt_videos(indexfile, saveto='raw_videos'):
     if not os.path.exists(saveto):
         os.mkdir(saveto)
     
-    for entry in tqdm(content):
+    for entry in content:
         gloss = entry['gloss']
         instances = entry['instances']
 
-        for inst in tqdm(instances):
+        for inst in instances:
             video_url = inst['url']
             video_id = inst['video_id']
 
             if 'youtube' not in video_url and 'youtu.be' not in video_url:
                 continue
 
-            if os.path.exists(os.path.join(saveto, video_url[-11:] + '.mp4')) or os.path.exists(os.path.join(saveto, video_url[-11:] + '.mkv')):
+            # if os.path.exists(os.path.join(saveto, video_url[-11:] + '.mp4')) or os.path.exists(os.path.join(saveto, video_url[-11:] + '.mkv')):
+            if video_id in missing_ids:
+                # os.remove(saveto)
+                logging.info('Remove YouTube videos {}'.format(video_url))
+            else:
                 logging.info('YouTube videos {} already exists.'.format(video_url))
                 continue
+            cmd = "youtube-dl \"{}\" -o \"{}%(id)s.%(ext)s\""
+            cmd = cmd.format(video_url, saveto + os.path.sep)
+
+            rv = os.system(cmd)
+            
+            if not rv:
+                logging.info('Finish downloading youtube video url {}'.format(video_url))
             else:
-                cmd = "youtube-dl \"{}\" -o \"{}%(id)s.%(ext)s\""
-                cmd = cmd.format(video_url, saveto + os.path.sep)
+                logging.error('Unsuccessful downloading - youtube video url {}'.format(video_url))
 
-                rv = os.system(cmd)
-                
-                if not rv:
-                    logging.info('Finish downloading youtube video url {}'.format(video_url))
-                else:
-                    logging.error('Unsuccessful downloading - youtube video url {}'.format(video_url))
-
-                # please be nice to the host - take pauses and avoid spamming
-                # time.sleep(random.uniform(1.0, 1.5))
+            # please be nice to the host - take pauses and avoid spamming
+            time.sleep(random.uniform(1.0, 1.5))
     
 
 if __name__ == '__main__':
-    logging.info('Start downloading non-youtube videos.')
-    download_nonyt_videos('WLASL_v0.3.json', saveto='/raid_han/sign-dataset/wlasl/raw_videos')
+    # logging.info('Start downloading non-youtube videos.')
+    # download_nonyt_videos('WLASL_v0.3.json', saveto='/raid_han/sign-dataset/wlasl/raw_videos')
 
-    # check_youtube_dl_version()
-    # logging.info('Start downloading youtube videos.')
-    # download_yt_videos('WLASL_v0.3.json', saveto='/raid_han/sign-dataset/wlasl/raw_videos')
-
+    check_youtube_dl_version()
+    logging.info('Start downloading youtube videos.')
+    download_yt_videos('WLASL_v0.3.json', saveto='/raid_han/sign-dataset/wlasl/raw_videos')

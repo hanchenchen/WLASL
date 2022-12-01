@@ -2,7 +2,7 @@ import os
 import json
 import cv2
 
-filenames = set(sorted(os.listdir('/raid_han/sign-dataset/wlasl/videos')))
+filenames = set(os.listdir('/raid_han/sign-dataset/wlasl/videos'))
 
 content = json.load(open('WLASL_v0.3.json'))
 
@@ -16,14 +16,14 @@ for entry in content:
         video_id = inst['video_id']
         total_video += 1
         if video_id + '.mp4' not in filenames:
-            missing_ids.append(video_id)
+            missing_ids.append(video_id + f' {inst["url"]}')
+            # print(video_id + f' {inst["url"]}')
         else:
             video_path = os.path.join('/raid_han/sign-dataset/wlasl/videos', video_id + '.mp4')
-            print(video_path)
             videocap = cv2.VideoCapture(video_path)
-            if not int(videocap.get(cv2.CAP_PROP_FRAME_COUNT)):
-                none_ids.append(video_id)
-                missing_ids.append(video_id)
+            print(video_id, int(videocap.get(cv2.CAP_PROP_FRAME_COUNT)))
+            if int(videocap.get(cv2.CAP_PROP_FRAME_COUNT)) < 10:
+                none_ids.append(video_id + str(videocap.get(cv2.CAP_PROP_FRAME_COUNT)))
             videocap.release()
 print(total_video, len(filenames))
 
