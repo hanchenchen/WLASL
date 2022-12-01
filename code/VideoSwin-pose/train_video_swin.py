@@ -339,7 +339,7 @@ if __name__ == '__main__':
     # root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100']}
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20']}
 
-    save_model = 'logdir/train_liya/1130-62-aug-ratio=0.2-61'
+    save_model = 'logdir/train_liya/1201-63-framewise-view-aug-62'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
