@@ -83,14 +83,17 @@ def load_rgb_frames(frame_paths, sampler, img_norm, img_index_map, index_view_im
     right_hand = []
     left_hand = []
     face = []
-    poses = []
+    frame_kpts = []
+    right_hand_kpts = []
+    left_hand_kpts = []
+    face_kpts = []
     frames_indexes = list(sampler({'start_index': 0, 'total_frames': len(frame_paths)})['frame_inds'])
     right_hand_indexes = list(sampler({'start_index': 0, 'total_frames': len(frame_paths)})['frame_inds'])
     left_hand_indexes = list(sampler({'start_index': 0, 'total_frames': len(frame_paths)})['frame_inds'])
     face_indexes = list(sampler({'start_index': 0, 'total_frames': len(frame_paths)})['frame_inds'])
     poses_indexes = list(sampler({'start_index': 0, 'total_frames': len(frame_paths)})['frame_inds'])
     label, signer, record_time, view, img_name = frame_paths[0].split('/')[-5:]
-    ratio = 0.1
+    ratio = 0.0
     if torch.rand(()) < ratio:
         pose_view = random.choice(['camera_0', 'camera_1', 'camera_2', 'camera_3'])
     else:
@@ -115,10 +118,10 @@ def load_rgb_frames(frame_paths, sampler, img_norm, img_index_map, index_view_im
     pose = json.load(open(pose_path, 'r'))['people'][0]
     shoudler = (pose['pose_keypoints_2d'][2*3] - pose['pose_keypoints_2d'][5*3])**2
     shoudler += (pose['pose_keypoints_2d'][2*3+1] - pose['pose_keypoints_2d'][5*3+1])**2
-    shoudler = shoudler**0.5
+    shoudler = shoudler**0.5 
     center_x = (pose['pose_keypoints_2d'][2*3] + pose['pose_keypoints_2d'][5*3])/2.0
     center_y = (pose['pose_keypoints_2d'][2*3+1] + pose['pose_keypoints_2d'][5*3+1])/2.0
-    center = torch.tensor([center_x, center_y])
+    center = torch.tensor([center_x, center_y]).reshape(1, 2)
     for frames_idx, right_hand_idx, left_hand_idx, face_idx, poses_idx in zip(frames_indexes, right_hand_indexes, left_hand_indexes, face_indexes, poses_indexes):
         img = cv2.imread(frame_paths[frames_idx])[:, :, [2, 1, 0]]
         if split!="train":
@@ -164,16 +167,26 @@ def load_rgb_frames(frame_paths, sampler, img_norm, img_index_map, index_view_im
         else:
             pose_path = view_aug(frame_paths[poses_idx], img_index_map, index_view_img_map, face_view).replace('rgb-480x320', 'openpose-res').replace('.jpg', '_keypoints.json')
         pose = json.load(open(pose_path, 'r'))['people'][0]
-        pose_keypoints_2d = torch.tensor(pose['pose_keypoints_2d']).reshape(-1, 3)[:, :2].reshape(-1)
-        face_keypoints_2d = torch.tensor(pose['face_keypoints_2d']).reshape(-1, 3)[:, :2].reshape(-1)
-        hand_left_keypoints_2d = torch.tensor(pose['hand_left_keypoints_2d']).reshape(-1, 3)[:, :2].reshape(-1)
-        hand_right_keypoints_2d = torch.tensor(pose['hand_right_keypoints_2d']).reshape(-1, 3)[:, :2].reshape(-1)
-        kpts = torch.cat([pose_keypoints_2d,face_keypoints_2d,hand_left_keypoints_2d,hand_right_keypoints_2d], dim=0)
-        kpts = (kpts.reshape(-1, 2) - center.reshape(-1, 2)).reshape(-1)/shoudler
-        poses.append(
-            kpts
-        )
-    return np.asarray(frames, dtype=np.float32), np.asarray(right_hand, dtype=np.float32), np.asarray(left_hand, dtype=np.float32), np.asarray(face, dtype=np.float32), poses
+        pose_keypoints_2d = torch.tensor(pose['pose_keypoints_2d']).reshape(-1, 3)[:, :2]
+        pose_keypoints_2d = (pose_keypoints_2d - center).reshape(-1)/shoudler
+        
+        face_keypoints_2d = torch.tensor(pose['face_keypoints_2d']).reshape(-1, 3)[:, :2]
+        face_keypoints_2d = (face_keypoints_2d - face_keypoints_2d[30, :]).reshape(-1)/shoudler * 2.0
+        
+        hand_left_keypoints_2d = torch.tensor(pose['hand_left_keypoints_2d']).reshape(-1, 3)[:, :2]
+        hand_left_keypoints_2d = (hand_left_keypoints_2d - hand_left_keypoints_2d[9, :]).reshape(-1)/shoudler * 2.0
+
+        hand_right_keypoints_2d = torch.tensor(pose['hand_right_keypoints_2d']).reshape(-1, 3)[:, :2]
+        hand_right_keypoints_2d = (hand_right_keypoints_2d - hand_right_keypoints_2d[9, :]).reshape(-1)/shoudler * 2.0
+
+        # kpts = torch.cat([pose_keypoints_2d,face_keypoints_2d,hand_left_keypoints_2d,hand_right_keypoints_2d], dim=0)
+
+        frame_kpts.append(pose_keypoints_2d)
+        face_kpts.append(face_keypoints_2d)
+        right_hand_kpts.append(hand_left_keypoints_2d)
+        left_hand_kpts.append(hand_right_keypoints_2d)
+
+    return np.asarray(frames, dtype=np.float32), np.asarray(right_hand, dtype=np.float32), np.asarray(left_hand, dtype=np.float32), np.asarray(face, dtype=np.float32), frame_kpts, face_kpts, right_hand_kpts, left_hand_kpts
 
 
 def load_rgb_frames_from_video(vid_root, vid, start, num, resize=(256, 256)):
@@ -529,7 +542,7 @@ class CAPG_CSL(data_utl.Dataset):
         self.root = root
         self.split = split
         self.total_frames = 32
-        self.sample_frame = SampleFrames(clip_len=1, num_clips=self.total_frames, test_mode=split!="train")
+        self.sample_frame = SampleFrames(clip_len=1, num_clips=self.total_frames, test_mode=False)
         self.img_norm = T.Normalize(
             mean=[0.485, 0.456, 0.406],
             std=[0.229, 0.224, 0.225],
@@ -550,7 +563,7 @@ class CAPG_CSL(data_utl.Dataset):
             tuple: (image, target) where target is class_index of the target class.
         """
         label, video_path, frame_paths = self.data[index]
-        imgs, right_hand, left_hand, face, poses = load_rgb_frames(frame_paths, self.sample_frame, self.img_norm, self.img_index_map, self.index_view_img_map, self.split)
+        imgs, right_hand, left_hand, face, frame_kpts, face_kpts, right_hand_kpts, left_hand_kpts = load_rgb_frames(frame_paths, self.sample_frame, self.img_norm, self.img_index_map, self.index_view_img_map, self.split)
 
         imgs = self.transforms(imgs)
         right_hand = self.transforms(right_hand)
@@ -558,13 +571,18 @@ class CAPG_CSL(data_utl.Dataset):
         face = self.transforms(face)
 
         ret_lab = torch.tensor(label)
-        ret_pose = torch.stack(poses, dim=0)
         ret_img = video_to_tensor(imgs)
         right_hand = video_to_tensor(right_hand)
         left_hand = video_to_tensor(left_hand)
         face = video_to_tensor(face)
 
-        return ret_img, ret_lab, index, ret_pose, right_hand, left_hand, face
+        frame_kpts = torch.stack(frame_kpts, dim=0)
+        face_kpts = torch.stack(face_kpts, dim=0)
+        right_hand_kpts = torch.stack(right_hand_kpts, dim=0)
+        left_hand_kpts = torch.stack(left_hand_kpts, dim=0)
+
+
+        return ret_img, ret_lab, index, right_hand, left_hand, face, frame_kpts, face_kpts, right_hand_kpts, left_hand_kpts
 
     def __len__(self):
         return len(self.data)
