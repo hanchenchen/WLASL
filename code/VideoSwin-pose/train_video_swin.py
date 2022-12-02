@@ -2,7 +2,7 @@ import os
 import argparse
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = '5'
+os.environ["CUDA_VISIBLE_DEVICES"] = '7'
 device_ids = [0]
 import torch
 import torch.nn as nn
@@ -13,7 +13,10 @@ from torch.optim.lr_scheduler import StepLR, MultiStepLR
 import wandb
 from torchvision import transforms
 import videotransforms
-
+from transformers import (
+    get_cosine_schedule_with_warmup,
+    get_polynomial_decay_schedule_with_warmup,
+)
 import numpy as np
 
 from configs import Config
@@ -117,8 +120,15 @@ def run(configs,
 
     best_val_score = 0
     # train it
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=10, factor=0.1)
-    while steps < configs.max_steps and epoch < 400:  # for epoch in range(num_epochs):
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=10, factor=0.1)
+    max_epoch = 100
+    configs.max_steps = max_epoch*len(dataset)
+    scheduler = get_cosine_schedule_with_warmup(
+                optimizer,
+                num_warmup_steps=0,
+                num_training_steps=configs.max_steps,
+            )
+    while steps < configs.max_steps and epoch < max_epoch:  # for epoch in range(num_epochs):
         print('Step {}/{}'.format(steps, configs.max_steps))
         print('-' * 10)
 
@@ -194,6 +204,8 @@ def run(configs,
                     optimizer.step()
                     optimizer.zero_grad()
                     # lr_sched.step()
+                    scheduler.step()
+
                     if steps % 10 == 0:
                         acc = float(np.trace(confusion_matrix)) / np.sum(confusion_matrix)
                         acc_cue = {f"{phase}/Accu/"+key: float(np.trace(confusion_matrix_cue[key])) / np.sum(confusion_matrix_cue[key]) for key in confusion_matrix_cue.keys()}
@@ -301,7 +313,7 @@ def run(configs,
         avg_val_score = sum([v for k, v in val_score_dict.items() if 'camera_' in k]) / 4.0
         # avg_test_score = sum([v for k, v in test_score_dict.items() if 'camera_' in k]) / 4.0
 
-        if avg_val_score >= best_val_score:
+        if avg_val_score > best_val_score:
             best_val_score = avg_val_score
             # model_name = f"{save_model}nslt_{str(num_classes)}_{avg_val_score:.3f}_{epoch:05}_{avg_test_score:.3f}.pt"
             model_name = f"{save_model}nslt_{str(num_classes)}_{avg_val_score:.3f}_{epoch:05}.pt"
@@ -312,7 +324,7 @@ def run(configs,
                 os.remove(path)
                 print('Remove:', path)
             print(model_name)
-        scheduler.step(val_score_dict['val_loss'] * num_steps_per_update / num_iter)
+        # scheduler.step(val_score_dict['val_loss'] * num_steps_per_update / num_iter)
 
         localtime = datetime.datetime.fromtimestamp(
             int(time.time()), pytz.timezone("Asia/Shanghai")
@@ -339,7 +351,7 @@ if __name__ == '__main__':
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['liya'], 'test': ['maodonglai']}
     # root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20']}
 
-    save_model = f'logdir/train_{root["train"][0]}/1201-67=65-view-aug-ratio=0-64'
+    save_model = f'logdir/train_{root["train"][0]}/1202-69-cosine-lr-decay-67=65'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
