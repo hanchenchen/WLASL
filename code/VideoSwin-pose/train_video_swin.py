@@ -2,7 +2,7 @@ import os
 import argparse
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+os.environ["CUDA_VISIBLE_DEVICES"] = '6'
 device_ids = [0]
 import torch
 import torch.nn as nn
@@ -28,7 +28,7 @@ from glob import glob
 import pytz
 # from datasets.nslt_dataset import NSLT as Dataset
 # from datasets.nslt_dataset import NSLT as Dataset
-from datasets.capg_csl_dataset_sample_sepa_view_contrast import CAPG_CSL as Dataset
+from datasets.capg_csl_dataset import CAPG_CSL as Dataset
 import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -122,7 +122,7 @@ def run(configs,
     # train it
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=10, factor=0.1)
     max_epoch = 100
-    configs.max_steps = max_epoch*len(dataset)
+    configs.max_steps = max_epoch*len(dataset)//configs.batch_size
     scheduler = get_cosine_schedule_with_warmup(
                 optimizer,
                 num_warmup_steps=0,
@@ -332,7 +332,7 @@ def run(configs,
                     
         # log = "[ " + localtime + " ] " + 'Epoch {} Step {} VALIDATION: {} TEST: {}'.format(epoch, steps, val_score_dict, test_score_dict)
         log = "[ " + localtime + " ] " + 'Epoch {} Step {} VALIDATION: {} {}'.format(epoch, steps, avg_val_score, val_score_dict)
-        print(log)
+        print(save_model, log)
         with open(save_model + 'acc_val.txt', "a") as f:
             f.writelines(log)
             f.writelines("\n")
@@ -348,10 +348,10 @@ if __name__ == '__main__':
     
     mode = 'rgb'
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
-    root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['maodonglai'], 'test': ['liya']}
+    root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['liya'], 'test': ['maodonglai']}
     # root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20']}
 
-    save_model = f'logdir/train_{root["train"][0]}/1202-71-view-aug-ratio=0.1-70'
+    save_model = f'logdir/train_{root["train"][0]}/1202-72-debug-lr-schedule-70'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
