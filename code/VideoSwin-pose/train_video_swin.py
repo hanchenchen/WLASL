@@ -331,7 +331,7 @@ def run(configs,
             ).strftime("%Y-%m-%d %H:%M:%S")
                     
         # log = "[ " + localtime + " ] " + 'Epoch {} Step {} VALIDATION: {} TEST: {}'.format(epoch, steps, val_score_dict, test_score_dict)
-        log = "[ " + localtime + " ] " + 'Epoch {} Step {} VALIDATION: {}'.format(epoch, steps, val_score_dict)
+        log = "[ " + localtime + " ] " + 'Epoch {} Step {} VALIDATION: {} {}'.format(epoch, steps, avg_val_score, val_score_dict)
         print(log)
         with open(save_model + 'acc_val.txt', "a") as f:
             f.writelines(log)
