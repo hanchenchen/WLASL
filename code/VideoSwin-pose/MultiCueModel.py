@@ -262,7 +262,7 @@ class MultiCueModel(nn.Module):
             'logits': self.pred_head(feats)*self.scale, 
             'scale': self.scale,
             }
-        ret.update(self.align_local_seq(ret, 'local_feats'))
+        # ret.update(self.align_local_seq(ret, 'local_feats'))
         # ret['mutual_distill_loss/framewise'] = self.mutual_dialign_local_seqstill(ret, 'framewise_feats')
         ret['mutual_distill_loss/contextual'] = self.mutual_distill(ret, 'contextual_feats')
         return ret
