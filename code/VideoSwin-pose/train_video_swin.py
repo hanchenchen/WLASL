@@ -2,7 +2,7 @@ import os
 import argparse
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = '4'
+os.environ["CUDA_VISIBLE_DEVICES"] = '7'
 device_ids = [0]
 import torch
 import torch.nn as nn
@@ -100,8 +100,8 @@ def run(configs,
     
     cue = ['full_rgb', 'right_hand', 'left_hand', 'face', 'pose']
     # supervised_cue = cue + ['multi_cue', 'late_fusion']
-    # supervised_cue = cue + ['late_fusion'] + [f'local_align/{i}' for i in cue]
-    supervised_cue = cue + ['late_fusion'] 
+    supervised_cue = cue + ['late_fusion'] + [f'local_align/{i}' for i in cue]
+    # supervised_cue = cue + ['late_fusion'] 
     model = MultiCueModel(cue, num_classes, share_hand_model=True)
 
     if weights:
@@ -349,10 +349,10 @@ if __name__ == '__main__':
     
     mode = 'rgb'
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
-    root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['liya'], 'test': ['maodonglai']}
+    root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['maodonglai'], 'test': ['liya']}
     # root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20']}
 
-    save_model = f'logdir/train_{root["train"][0]}/1203-78-baseline-77'
+    save_model = f'logdir/train_{root["train"][0]}/1203-79-local_align+conv1d-78'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
