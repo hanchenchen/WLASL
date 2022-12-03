@@ -100,7 +100,8 @@ def run(configs,
     
     cue = ['full_rgb', 'right_hand', 'left_hand', 'face', 'pose']
     # supervised_cue = cue + ['multi_cue', 'late_fusion']
-    supervised_cue = cue + ['late_fusion'] + [f'local_align/{i}' for i in cue]
+    # supervised_cue = cue + ['late_fusion'] + [f'local_align/{i}' for i in cue]
+    supervised_cue = cue + ['late_fusion'] 
     model = MultiCueModel(cue, num_classes, share_hand_model=True)
 
     if weights:
@@ -122,7 +123,7 @@ def run(configs,
     # train it
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=10, factor=0.1)
     max_epoch = 100
-    configs.max_steps = max_epoch*len(dataset)//configs.batch_size
+    configs.max_steps = max_epoch*len(dataset)# //configs.batch_size
     scheduler = get_cosine_schedule_with_warmup(
                 optimizer,
                 num_warmup_steps=0,
@@ -183,7 +184,7 @@ def run(configs,
                     for i in range(logits.shape[0]):
                         confusion_matrix_cue[key][labels[i].item(), pred[i].item()] += 1
                 # loss = loss + ret['mutual_distill_loss/framewise'] 
-                loss = loss + ret['mutual_distill_loss/contextual'] 
+                # loss = loss + ret['mutual_distill_loss/contextual'] 
                 # scales[f"{phase}/mutual_distill_loss/framewise"] = ret['mutual_distill_loss/framewise'].item()
                 scales[f"{phase}/mutual_distill_loss/contextual"] = ret['mutual_distill_loss/contextual'].item()
                 logits = ret['late_fusion']['logits']
@@ -351,7 +352,7 @@ if __name__ == '__main__':
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['maodonglai'], 'test': ['liya']}
     # root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20']}
 
-    save_model = f'logdir/train_{root["train"][0]}/1203-77-align-multi-view-76'
+    save_model = f'logdir/train_{root["train"][0]}/1203-78-baseline-77'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
