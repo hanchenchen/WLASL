@@ -152,21 +152,24 @@ class MultiCueModel(nn.Module):
                 num_classes=num_classes,
                 hidden_dim=768,
                 frame_len=frame_len,)
-            self.full_rgb_placeholder = nn.Parameter(torch.randn(1, 768))
+            self.full_rgb_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//2, 768))
+            self.full_rgb_seq_scale = nn.Parameter(torch.ones(1))
 
         if 'right_hand' in cue: 
             self.right_hand_model = RGBCueModel(
                 num_classes=num_classes,
                 hidden_dim=768,
                 frame_len=frame_len,)
-            self.right_hand_placeholder = nn.Parameter(torch.randn(1, 768))
+            self.right_hand_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//2, 768))
+            self.right_hand_seq_scale = nn.Parameter(torch.ones(1))
 
         if 'left_hand' in cue: 
             self.left_hand_model = RGBCueModel(
                 num_classes=num_classes,
                 hidden_dim=768,
                 frame_len=frame_len,)
-            self.left_hand_placeholder = nn.Parameter(torch.randn(1, 768))
+            self.left_hand_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//2, 768))
+            self.left_hand_seq_scale = nn.Parameter(torch.ones(1))
 
         if share_hand_model:
             self.right_hand_model = self.left_hand_model
@@ -176,14 +179,19 @@ class MultiCueModel(nn.Module):
                 num_classes=num_classes,
                 hidden_dim=768,
                 frame_len=frame_len,)
-            self.face_placeholder = nn.Parameter(torch.randn(1, 768))
+            self.face_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//2, 768))
+            self.face_seq_scale = nn.Parameter(torch.ones(1))
 
         if 'pose' in cue: 
             self.pose_model = PoseCueModel(
                 num_classes=num_classes,
                 hidden_dim=768,
                 frame_len=frame_len,)
-            self.pose_placeholder = nn.Parameter(torch.randn(1, 768))
+            self.pose_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//2, 768))
+            self.pose_seq_scale = nn.Parameter(torch.ones(1))
+
+        # self.local_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//2, 768))
+        
         glo_dim = 768*5
         self.pred_head = nn.Sequential(
             nn.Linear(glo_dim, glo_dim),
@@ -209,15 +217,27 @@ class MultiCueModel(nn.Module):
                     l = l - F.cosine_similarity(ret[x][key], ret[y][key], dim=-1).mean()
         return l
 
+    def align_local_seq(self, ret, key):
+        local_ret = {}
+        for x in self.cue:
+            local_seq = eval(f'self.{x}_seq')
+            local_seq_scale = eval(f'self.{x}_seq_scale')
+            logits = F.cosine_similarity(ret[x][key].unsqueeze(1), local_seq, dim=-1).mean(dim=-1)
+            local_ret[f'local_align/{x}'] = {
+                'logits': logits*local_seq_scale, 
+                'scale': local_seq_scale,
+                }
+        return local_ret
+
     def forward(self, inputs):
         ret = {}
         feats_list = []
         for key in self.cue:
             value = inputs[key]
-            logits, framewise_feats, contextual_feats, scale = self.forward_cue(value, key)
+            logits, local_feats, contextual_feats, scale = self.forward_cue(value, key)
             ret[key] = {
                 'logits': logits, 
-                'framewise_feats': framewise_feats,
+                'local_feats': local_feats,
                 'contextual_feats': contextual_feats,
                 'scale': scale,
                 }
@@ -227,6 +247,7 @@ class MultiCueModel(nn.Module):
             'logits': self.pred_head(feats)*self.scale, 
             'scale': self.scale,
             }
-        # ret['mutual_distill_loss/framewise'] = self.mutual_distill(ret, 'framewise_feats')
+        ret.update(self.align_local_seq(ret, 'local_feats'))
+        # ret['mutual_distill_loss/framewise'] = self.mutual_dialign_local_seqstill(ret, 'framewise_feats')
         ret['mutual_distill_loss/contextual'] = self.mutual_distill(ret, 'contextual_feats')
         return ret
