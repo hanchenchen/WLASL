@@ -116,22 +116,6 @@ def load_rgb_frames(frame_paths, sampler, img_norm, img_index_map, index_view_im
     center_y = (pose['pose_keypoints_2d'][2*3+1] + pose['pose_keypoints_2d'][5*3+1])/2.0
     center = torch.tensor([center_x, center_y])
     for i in list(indexes):
-        if torch.rand(()) < ratio:
-            pose_view = random.choice(['camera_0', 'camera_1', 'camera_2', 'camera_3'])
-        else:
-            pose_view = view
-        if torch.rand(()) < ratio:
-            right_hand_view = random.choice(['camera_0', 'camera_1', 'camera_2', 'camera_3'])
-        else:
-            right_hand_view = view
-        if torch.rand(()) < ratio:
-            left_hand_view = random.choice(['camera_0', 'camera_1', 'camera_2', 'camera_3'])
-        else:
-            left_hand_view = view
-        if torch.rand(()) < ratio:
-            face_view = random.choice(['camera_0', 'camera_1', 'camera_2', 'camera_3'])
-        else:
-            face_view = view
         img = cv2.imread(frame_paths[i])[:, :, [2, 1, 0]]
         if split!="train":
             right_hand_path = frame_paths[i].replace('rgb-480x320', 'right-hand-224x224')
