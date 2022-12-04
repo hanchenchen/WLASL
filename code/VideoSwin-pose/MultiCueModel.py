@@ -266,8 +266,7 @@ class MultiCueModel(nn.Module):
             }
         ret.update(self.align_local_seq(ret, 'local_feats'))
         ret['local_glocal_fusion'] = {
-            'logits': ret['late_fusion']['logits'] 
-            + sum(ret[i]['logits'] for i in ret.keys() if 'local_align' in i)/float(len(self.cue)), 
+            'logits': sum(ret[i]['logits'] for i in ret.keys())/float(len(self.cue))*self.local_glocal_scale, 
             # + sum(ret[i]['logits'] for i in ret.keys() if 'local_align' in i)/float(len(self.cue)), 
             'scale': self.local_glocal_scale,
             }
