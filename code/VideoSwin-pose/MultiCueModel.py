@@ -207,7 +207,7 @@ class MultiCueModel(nn.Module):
 
         # self.local_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//2, 768))
         
-        glo_dim = 768*5
+        glo_dim = 768*len(cue)
         self.pred_head = nn.Sequential(
             nn.Linear(glo_dim, glo_dim),
             nn.Linear(glo_dim, num_classes),
@@ -264,5 +264,5 @@ class MultiCueModel(nn.Module):
             }
         # ret.update(self.align_local_seq(ret, 'local_feats'))
         # ret['mutual_distill_loss/framewise'] = self.mutual_dialign_local_seqstill(ret, 'framewise_feats')
-        ret['mutual_distill_loss/contextual'] = self.mutual_distill(ret, 'contextual_feats')
+        # ret['mutual_distill_loss/contextual'] = self.mutual_distill(ret, 'contextual_feats')
         return ret
