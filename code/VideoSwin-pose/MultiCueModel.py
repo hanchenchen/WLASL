@@ -39,7 +39,12 @@ class RGBCueModel(nn.Module):
             drop_path_rate=0.2,
             patch_norm=True
         )
-        self.local_align_model = TemporalConv(
+        self.local_align_cross_modal = TemporalConv(
+            input_size=hidden_dim,
+            hidden_size=hidden_dim,
+            conv_type=3,
+        )
+        self.local_align_cross_view = TemporalConv(
             input_size=hidden_dim,
             hidden_size=hidden_dim,
             conv_type=3,
@@ -56,12 +61,13 @@ class RGBCueModel(nn.Module):
         x = self.short_term_model(x)
         x = rearrange(x, 'n d h w c -> n d (h w) c')
         x = x.mean(dim=2)                
-        framewise_feats = self.local_align_model(x.permute(0, 2, 1)).permute(0, 2, 1)
+        cross_modal_feats = self.local_align_cross_modal(x.permute(0, 2, 1)).permute(0, 2, 1)
+        cross_view_feats = self.local_align_cross_view(x.permute(0, 2, 1)).permute(0, 2, 1)
         x = x + self.pos_emb
         x = self.long_term_model(x)
         contextual_feats = x
         logits = self.pred_head(x[:, 0, :])*self.scale
-        return logits, framewise_feats, contextual_feats, self.scale
+        return logits, cross_modal_feats, cross_view_feats, contextual_feats, self.scale
 
 
 class OpticalFlowCueModel(nn.Module):
@@ -88,7 +94,12 @@ class OpticalFlowCueModel(nn.Module):
             patch_norm=True,
             in_chans=2,
         )
-        self.local_align_model = TemporalConv(
+        self.local_align_cross_modal = TemporalConv(
+            input_size=hidden_dim,
+            hidden_size=hidden_dim,
+            conv_type=3,
+        )
+        self.local_align_cross_view = TemporalConv(
             input_size=hidden_dim,
             hidden_size=hidden_dim,
             conv_type=3,
@@ -105,12 +116,13 @@ class OpticalFlowCueModel(nn.Module):
         x = self.short_term_model(x)
         x = rearrange(x, 'n d h w c -> n d (h w) c')
         x = x.mean(dim=2)
-        framewise_feats = self.local_align_model(x.permute(0, 2, 1)).permute(0, 2, 1)
+        cross_modal_feats = self.local_align_cross_modal(x.permute(0, 2, 1)).permute(0, 2, 1)
+        cross_view_feats = self.local_align_cross_view(x.permute(0, 2, 1)).permute(0, 2, 1)
         x = x + self.pos_emb
         x = self.long_term_model(x)
         contextual_feats = x
         logits = self.pred_head(x[:, 0, :])*self.scale
-        return logits, framewise_feats, contextual_feats, self.scale
+        return logits, cross_modal_feats, cross_view_feats, contextual_feats, self.scale
 
 
 class PoseCueModel(nn.Module):
@@ -128,7 +140,12 @@ class PoseCueModel(nn.Module):
             hidden_size=hidden_dim,
             conv_type=3,
         )
-        self.local_align_model = TemporalConv(
+        self.local_align_cross_modal = TemporalConv(
+            input_size=hidden_dim,
+            hidden_size=hidden_dim,
+            conv_type=3,
+        )
+        self.local_align_cross_view = TemporalConv(
             input_size=hidden_dim,
             hidden_size=hidden_dim,
             conv_type=3,
@@ -142,12 +159,13 @@ class PoseCueModel(nn.Module):
     def forward(self, x):
         x = self.proj(x)
         x = self.short_term_model(x.permute(0, 2, 1))
-        framewise_feats = self.local_align_model(x).permute(0, 2, 1)
+        cross_modal_feats = self.local_align_cross_modal(x).permute(0, 2, 1)
+        cross_view_feats = self.local_align_cross_view(x).permute(0, 2, 1)
         x = x.permute(0, 2, 1) + self.pos_emb
         x = self.long_term_model(x)
         contextual_feats = x
         logits = self.pred_head(x[:, 0, :])*self.scale
-        return logits, framewise_feats, contextual_feats, self.scale
+        return logits, cross_modal_feats, cross_view_feats, contextual_feats, self.scale
 
 
 class MultiCueModel(nn.Module):
@@ -207,6 +225,9 @@ class MultiCueModel(nn.Module):
 
         # self.local_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//2, 768))
         
+        self.mm_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//4, 768))
+        self.mm_seq_scale = nn.Parameter(torch.ones(1))
+
         glo_dim = 768*len(cue)
         self.pred_head = nn.Sequential(
             nn.Linear(glo_dim, glo_dim),
@@ -234,13 +255,25 @@ class MultiCueModel(nn.Module):
                     l = l - F.cosine_similarity(ret[x][key], ret[y][key], dim=-1).mean()
         return l
 
-    def align_local_seq(self, ret, key):
+    def align_local_seq_cross_modal(self, ret, key):
+        local_ret = {}
+        for x in self.cue:
+            local_seq = self.mm_seq
+            local_seq_scale = self.mm_seq_scale
+            logits = F.cosine_similarity(ret[x][key].unsqueeze(1), local_seq, dim=-1).mean(dim=-1)
+            local_ret[f'local_align/cross_modal_{x}'] = {
+                'logits': logits*local_seq_scale, 
+                'scale': local_seq_scale,
+                }
+        return local_ret
+
+    def align_local_seq_cross_view(self, ret, key):
         local_ret = {}
         for x in self.cue:
             local_seq = eval(f'self.{x}_seq')
             local_seq_scale = eval(f'self.{x}_seq_scale')
             logits = F.cosine_similarity(ret[x][key].unsqueeze(1), local_seq, dim=-1).mean(dim=-1)
-            local_ret[f'local_align/{x}'] = {
+            local_ret[f'local_align/cross_view_{x}'] = {
                 'logits': logits*local_seq_scale, 
                 'scale': local_seq_scale,
                 }
@@ -251,10 +284,11 @@ class MultiCueModel(nn.Module):
         feats_list = []
         for key in self.cue:
             value = inputs[key]
-            logits, local_feats, contextual_feats, scale = self.forward_cue(value, key)
+            logits, cross_modal_feats, cross_view_feats, contextual_feats, scale = self.forward_cue(value, key)
             ret[key] = {
                 'logits': logits, 
-                'local_feats': local_feats,
+                'cross_modal_feats': cross_modal_feats,
+                'cross_view_feats': cross_view_feats,
                 'contextual_feats': contextual_feats,
                 'scale': scale,
                 }
@@ -264,12 +298,13 @@ class MultiCueModel(nn.Module):
             'logits': self.pred_head(feats)*self.scale, 
             'scale': self.scale,
             }
-        # ret.update(self.align_local_seq(ret, 'local_feats'))
-        # ret['local_glocal_fusion'] = {
-        #     'logits': sum(ret[i]['logits'] for i in ret.keys())/float(len(self.cue))*self.local_glocal_scale, 
-        #     # + sum(ret[i]['logits'] for i in ret.keys() if 'local_align' in i)/float(len(self.cue)), 
-        #     'scale': self.local_glocal_scale,
-        #     }
+        ret.update(self.align_local_seq_cross_modal(ret, 'cross_modal_feats'))
+        ret.update(self.align_local_seq_cross_view(ret, 'cross_view_feats'))
+        ret['local_glocal_fusion'] = {
+            'logits': sum(ret[i]['logits'] for i in ret.keys())/float(len(self.cue))*self.local_glocal_scale, 
+            # + sum(ret[i]['logits'] for i in ret.keys() if 'local_align' in i)/float(len(self.cue)), 
+            'scale': self.local_glocal_scale,
+            }
         # ret['mutual_distill_loss/framewise'] = self.mutual_dialign_local_seqstill(ret, 'framewise_feats')
         # ret['mutual_distill_loss/contextual'] = self.mutual_distill(ret, 'contextual_feats')
         return ret

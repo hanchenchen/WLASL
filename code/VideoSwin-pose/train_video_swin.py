@@ -2,7 +2,7 @@ import os
 import argparse
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = '4'
+os.environ["CUDA_VISIBLE_DEVICES"] = '3'
 device_ids = [0]
 import torch
 import torch.nn as nn
@@ -101,8 +101,8 @@ def run(configs,
     cue = ['full_rgb', 'right_hand', 'left_hand', 'face', 'pose']
     # cue = ['face']
     # supervised_cue = cue + ['multi_cue', 'late_fusion']
-    # supervised_cue = cue + ['late_fusion'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
-    supervised_cue = cue + ['late_fusion'] 
+    supervised_cue = cue + ['late_fusion'] + [f'local_align/cross_view_{i}' for i in cue] + [f'local_align/cross_modal_{i}' for i in cue] + ['local_glocal_fusion']
+    # supervised_cue = cue + ['late_fusion'] 
     model = MultiCueModel(cue, num_classes, share_hand_model=False)
 
     if weights:
@@ -188,7 +188,7 @@ def run(configs,
                 # loss = loss + ret['mutual_distill_loss/contextual'] 
                 # scales[f"{phase}/mutual_distill_loss/framewise"] = ret['mutual_distill_loss/framewise'].item()
                 # scales[f"{phase}/mutual_distill_loss/contextual"] = ret['mutual_distill_loss/contextual'].item()
-                logits = ret['late_fusion']['logits']
+                logits = ret['local_glocal_fusion']['logits']
                 pred = torch.argmax(logits, dim=1)
                 for i in range(logits.shape[0]):
                     confusion_matrix[labels[i].item(), pred[i].item()] += 1
@@ -353,7 +353,7 @@ if __name__ == '__main__':
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['liya'], 'test': ['maodonglai']}
     # root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20']}
 
-    save_model = f'logdir/train_{root["train"][0]}/1204-89-wo-local-align-88'
+    save_model = f'logdir/train_{root["train"][0]}/1204-90-w-local-align-cross-modal-88'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
