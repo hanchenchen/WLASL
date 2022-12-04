@@ -214,6 +214,8 @@ class MultiCueModel(nn.Module):
         )
         self.scale = nn.Parameter(torch.ones(1))
 
+        self.local_glocal_scale = nn.Parameter(torch.ones(1))
+
     def forward_cue(self, x, cue):
         if cue != 'pose':
             x = x.to(self.device, non_blocking=True)
@@ -262,7 +264,13 @@ class MultiCueModel(nn.Module):
             'logits': self.pred_head(feats)*self.scale, 
             'scale': self.scale,
             }
-        # ret.update(self.align_local_seq(ret, 'local_feats'))
+        ret.update(self.align_local_seq(ret, 'local_feats'))
+        ret['local_glocal_fusion'] = {
+            'logits': ret['late_fusion']['logits'] 
+            + sum(ret[i]['logits'] for i in ret.keys() if 'local_align' in i)/float(len(self.cue)), 
+            # + sum(ret[i]['logits'] for i in ret.keys() if 'local_align' in i)/float(len(self.cue)), 
+            'scale': self.local_glocal_scale,
+            }
         # ret['mutual_distill_loss/framewise'] = self.mutual_dialign_local_seqstill(ret, 'framewise_feats')
         # ret['mutual_distill_loss/contextual'] = self.mutual_distill(ret, 'contextual_feats')
         return ret
