@@ -164,12 +164,19 @@ def load_rgb_frames(frame_paths, sampler, img_norm, img_index_map, index_view_im
         else:
             pose_path = view_aug(frame_paths[poses_idx], img_index_map, index_view_img_map, face_view).replace('rgb-480x320', 'openpose-res').replace('.jpg', '_keypoints.json')
         pose = json.load(open(pose_path, 'r'))['people'][0]
-        pose_keypoints_2d = torch.tensor(pose['pose_keypoints_2d']).reshape(-1, 3)[:, :2].reshape(-1)
-        face_keypoints_2d = torch.tensor(pose['face_keypoints_2d']).reshape(-1, 3)[:, :2].reshape(-1)
-        hand_left_keypoints_2d = torch.tensor(pose['hand_left_keypoints_2d']).reshape(-1, 3)[:, :2].reshape(-1)
-        hand_right_keypoints_2d = torch.tensor(pose['hand_right_keypoints_2d']).reshape(-1, 3)[:, :2].reshape(-1)
+        pose_keypoints_2d = torch.tensor(pose['pose_keypoints_2d']).reshape(-1, 3)[:, :2]
+        pose_keypoints_2d = (pose_keypoints_2d-pose_keypoints_2d[1, :]).reshape(-1)/shoudler
+
+        face_keypoints_2d = torch.tensor(pose['face_keypoints_2d']).reshape(-1, 3)[:, :2]
+        face_keypoints_2d = (face_keypoints_2d-face_keypoints_2d[30, :]).reshape(-1)/shoudler*2.0
+
+        hand_left_keypoints_2d = torch.tensor(pose['hand_left_keypoints_2d']).reshape(-1, 3)[:, :2]
+        hand_left_keypoints_2d = (hand_left_keypoints_2d-hand_left_keypoints_2d[9, :]).reshape(-1)/shoudler*2.0
+
+        hand_right_keypoints_2d = torch.tensor(pose['hand_right_keypoints_2d']).reshape(-1, 3)[:, :2]
+        hand_right_keypoints_2d = (hand_right_keypoints_2d-hand_right_keypoints_2d[9, :]).reshape(-1)/shoudler*2.0
+
         kpts = torch.cat([pose_keypoints_2d,face_keypoints_2d,hand_left_keypoints_2d,hand_right_keypoints_2d], dim=0)
-        kpts = (kpts.reshape(-1, 2) - center.reshape(-1, 2)).reshape(-1)/shoudler
         poses.append(
             kpts
         )
