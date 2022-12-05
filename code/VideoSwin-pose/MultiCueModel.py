@@ -301,7 +301,7 @@ class MultiCueModel(nn.Module):
         ret.update(self.align_local_seq_cross_modal(ret, 'contextual_feats'))
         ret.update(self.align_local_seq_cross_view(ret, 'cross_view_feats'))
         ret['local_glocal_fusion'] = {
-            'logits': sum(ret[i]['logits'] for i in ret.keys())/float(len(self.cue))*self.local_glocal_scale, 
+            'logits': sum([ret[i]['logits'] for i in ret.keys() if 'cross_modal_' not in i])/float(len(self.cue))*self.local_glocal_scale, 
             # + sum(ret[i]['logits'] for i in ret.keys() if 'local_align' in i)/float(len(self.cue)), 
             'scale': self.local_glocal_scale,
             }
