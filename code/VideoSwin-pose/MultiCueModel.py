@@ -225,7 +225,7 @@ class MultiCueModel(nn.Module):
 
         # self.local_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//2, 768))
         
-        self.mm_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//4, 768))
+        self.mm_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//2, 768))
         self.mm_seq_scale = nn.Parameter(torch.ones(1))
 
         glo_dim = 768*len(cue)
@@ -298,7 +298,7 @@ class MultiCueModel(nn.Module):
             'logits': self.pred_head(feats)*self.scale, 
             'scale': self.scale,
             }
-        ret.update(self.align_local_seq_cross_modal(ret, 'cross_modal_feats'))
+        ret.update(self.align_local_seq_cross_modal(ret, 'contextual_feats'))
         ret.update(self.align_local_seq_cross_view(ret, 'cross_view_feats'))
         ret['local_glocal_fusion'] = {
             'logits': sum(ret[i]['logits'] for i in ret.keys())/float(len(self.cue))*self.local_glocal_scale, 
