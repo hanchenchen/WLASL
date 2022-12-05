@@ -173,10 +173,12 @@ class MultiCueModel(nn.Module):
         self,
         cue,
         num_classes,
-        share_hand_model=True
+        share_hand_model=False,
+        supervised_cue=None,
     ):
         super(MultiCueModel, self).__init__()
         self.cue = cue
+        self.supervised_cue = supervised_cue
         self.num_classes = num_classes
         self.device = torch.device("cuda")
         frame_len = 32
@@ -236,6 +238,10 @@ class MultiCueModel(nn.Module):
         self.scale = nn.Parameter(torch.ones(1))
 
         self.local_glocal_scale = nn.Parameter(torch.ones(1))
+        self.local_glocal_weight = nn.Sequential(
+            nn.Linear(glo_dim, glo_dim),
+            nn.Linear(glo_dim, 3*len(cue)+1),
+        )
 
     def forward_cue(self, x, cue):
         if cue != 'pose':
@@ -300,9 +306,21 @@ class MultiCueModel(nn.Module):
             }
         ret.update(self.align_local_seq_cross_modal(ret, 'cross_modal_feats'))
         ret.update(self.align_local_seq_cross_view(ret, 'cross_view_feats'))
+
+        w = self.local_glocal_weight(feats).softmax(dim=-1)
+        local_global_logits = []
+        i = 0
+        ret[f'local_glocal_fusion_weights'] = {}
+        for key in self.supervised_cue:
+            if key != 'local_glocal_fusion':
+                local_global_logits.append(ret[key]['logits'])
+                ret[f'local_glocal_fusion_weights'][f'fusion_weights_{key}'] = w[0][i].item()
+                i += 1
+        local_global_logits = torch.stack(local_global_logits, dim=1)
+        B, N, C = local_global_logits.shape
+        local_global_logits = (w.reshape(B, N, 1)*local_global_logits).sum(dim=1)
         ret['local_glocal_fusion'] = {
-            'logits': sum(ret[i]['logits'] for i in ret.keys())/float(len(self.cue))*self.local_glocal_scale, 
-            # + sum(ret[i]['logits'] for i in ret.keys() if 'local_align' in i)/float(len(self.cue)), 
+            'logits': local_global_logits*self.local_glocal_scale, 
             'scale': self.local_glocal_scale,
             }
         # ret['mutual_distill_loss/framewise'] = self.mutual_dialign_local_seqstill(ret, 'framewise_feats')
