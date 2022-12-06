@@ -236,14 +236,7 @@ class MultiCueModel(nn.Module):
         self.scale = nn.Parameter(torch.ones(1))
 
         self.local_glocal_scale = nn.Parameter(torch.ones(1))
-        for x in self.cue:
-            for y in self.cue:
-                if x != y:
-                    self.add_module(f'{x}_{y}_proj', nn.Sequential(nn.Linear(768, 768, bias=False),
-                    nn.BatchNorm1d(768),
-                    nn.ReLU(inplace=True), # hidden layer
-                    nn.Linear(768, 768)) # output layer
-                    )
+        self.kl_loss = nn.KLDivLoss(reduction="batchmean")
 
     def forward_cue(self, x, cue):
         if cue != 'pose':
@@ -257,15 +250,16 @@ class MultiCueModel(nn.Module):
 
     def mutual_distill(self, ret, key):
         l = 0.0
-        for x in ['full_rgb', 'pose']:
-            for y in ['full_rgb', 'pose']:
+        for x in self.cue:
+            for y in self.cue:
                 if x != y:
-                    a = ret[x][key]
-                    B, N, C = a.shape
-                    a = a.reshape(B*N, C)
-                    a = eval(f'self.{x}_{y}_proj')(a)
-                    b = ret[y][key].detach().reshape(B*N, C)
-                    l = l - F.cosine_similarity(a, b, dim=-1).mean()
+                    pred = ret[x][key]
+                    pred = eval(f'self.{x}_model.pred_head')(pred)
+                    pred = F.log_softmax(pred, dim=2)
+                    target = ret[y][key].detach()
+                    target = eval(f'self.{y}_model.pred_head')(target)
+                    target = F.softmax(target, dim=1)
+                    l = l + self.kl_loss(pred, target)
         return l
 
     def align_local_seq_cross_modal(self, ret, key):
