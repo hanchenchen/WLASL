@@ -305,7 +305,7 @@ class MultiCueModel(nn.Module):
                 'contextual_feats': contextual_feats,
                 'scale': scale,
                 }
-            feats_list.append(contextual_feats[:, 0, :])
+            feats_list.append(contextual_feats.mean(dim=1))
         feats = torch.cat(feats_list, dim=-1)
         ret['late_fusion'] = {
             'logits': self.pred_head(feats)*self.scale, 
