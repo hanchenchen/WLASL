@@ -257,8 +257,8 @@ class MultiCueModel(nn.Module):
 
     def mutual_distill(self, ret, key):
         l = 0.0
-        for x in self.cue:
-            for y in self.cue:
+        for x in ['full_rgb', 'pose']:
+            for y in ['full_rgb', 'pose']:
                 if x != y:
                     a = ret[x][key]
                     B, N, C = a.shape
