@@ -236,6 +236,14 @@ class MultiCueModel(nn.Module):
         self.scale = nn.Parameter(torch.ones(1))
 
         self.local_glocal_scale = nn.Parameter(torch.ones(1))
+        for x in self.cue:
+            for y in self.cue:
+                if x != y:
+                    self.add_module(f'{x}_{y}_proj', nn.Sequential(nn.Linear(768, 768, bias=False),
+                    nn.BatchNorm1d(768),
+                    nn.ReLU(inplace=True), # hidden layer
+                    nn.Linear(768, 768)) # output layer
+                    )
 
     def forward_cue(self, x, cue):
         if cue != 'pose':
@@ -252,7 +260,12 @@ class MultiCueModel(nn.Module):
         for x in self.cue:
             for y in self.cue:
                 if x != y:
-                    l = l - F.cosine_similarity(ret[x][key], ret[y][key], dim=-1).mean()
+                    a = ret[x][key]
+                    B, N, C = a.shape
+                    a = a.reshape(B*N, C)
+                    a = eval(f'self.{x}_{y}_proj')(a)
+                    b = ret[y][key].detach().reshape(B*N, C)
+                    l = l - F.cosine_similarity(a, b, dim=-1).mean()
         return l
 
     def align_local_seq_cross_modal(self, ret, key):
@@ -298,13 +311,13 @@ class MultiCueModel(nn.Module):
             'logits': self.pred_head(feats)*self.scale, 
             'scale': self.scale,
             }
-        ret.update(self.align_local_seq_cross_modal(ret, 'contextual_feats'))
+        # ret.update(self.align_local_seq_cross_modal(ret, 'contextual_feats'))
         ret.update(self.align_local_seq_cross_view(ret, 'cross_view_feats'))
         ret['local_glocal_fusion'] = {
-            'logits': sum([ret[i]['logits'] for i in ret.keys() if 'cross_modal_' not in i])/float(len(self.cue))*self.local_glocal_scale, 
+            'logits': sum([ret[i]['logits'] for i in ret.keys()])/float(len(self.cue))*self.local_glocal_scale, 
             # + sum(ret[i]['logits'] for i in ret.keys() if 'local_align' in i)/float(len(self.cue)), 
             'scale': self.local_glocal_scale,
             }
         # ret['mutual_distill_loss/framewise'] = self.mutual_dialign_local_seqstill(ret, 'framewise_feats')
-        # ret['mutual_distill_loss/contextual'] = self.mutual_distill(ret, 'contextual_feats')
+        ret['mutual_distill_loss/contextual'] = self.mutual_distill(ret, 'contextual_feats')
         return ret
