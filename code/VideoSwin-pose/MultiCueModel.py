@@ -215,6 +215,7 @@ class MultiCueModel(nn.Module):
         self.scale = nn.Parameter(torch.ones(1))
 
         self.local_glocal_scale = nn.Parameter(torch.ones(1))
+        self.kl_loss = nn.KLDivLoss(reduction="batchmean")
 
     def forward_cue(self, x, cue):
         if cue != 'pose':
@@ -231,7 +232,15 @@ class MultiCueModel(nn.Module):
         for x in self.cue:
             for y in self.cue:
                 if x != y:
-                    l = l - F.cosine_similarity(ret[x][key], ret[y][key], dim=-1).mean()
+                    pred = ret[x][key]
+                    B, N, C = pred.shape
+                    pred = pred.reshape(B*N, C)
+                    pred = eval(f'self.{x}_model.pred_head')(pred)
+                    pred = F.log_softmax(pred, dim=1)
+                    target = ret[y][key].detach().reshape(B*N, C)
+                    target = eval(f'self.{y}_model.pred_head')(target)
+                    target = F.softmax(target, dim=1)
+                    l = l + self.kl_loss(pred, target)
         return l
 
     def align_local_seq(self, ret, key):
@@ -272,5 +281,5 @@ class MultiCueModel(nn.Module):
             'scale': self.local_glocal_scale,
             }
         # ret['mutual_distill_loss/framewise'] = self.mutual_dialign_local_seqstill(ret, 'framewise_feats')
-        # ret['mutual_distill_loss/contextual'] = self.mutual_distill(ret, 'contextual_feats')
+        ret['mutual_distill_loss/contextual'] = self.mutual_distill(ret, 'contextual_feats')
         return ret
