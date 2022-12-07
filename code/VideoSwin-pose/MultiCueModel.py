@@ -208,13 +208,24 @@ class MultiCueModel(nn.Module):
         # self.local_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//2, 768))
         
         glo_dim = 768*len(cue)
-        self.pred_head = nn.Sequential(
+        self.lf_pred_head = nn.Sequential(
             nn.Linear(glo_dim, glo_dim),
             nn.Linear(glo_dim, num_classes),
         )
-        self.scale = nn.Parameter(torch.ones(1))
+        self.lf_scale = nn.Parameter(torch.ones(1))
 
         self.local_glocal_scale = nn.Parameter(torch.ones(1))
+
+        hidden_dim = 768
+        self.proj = nn.Linear(glo_dim, hidden_dim)
+        self.pos_emb = nn.Parameter(torch.randn(1, frame_len//2, hidden_dim))
+        encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_dim, nhead=8, batch_first=True)
+        self.long_term_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
+        self.mf_pred_head = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.Linear(hidden_dim, num_classes),
+        )
+        self.mf_scale = nn.Parameter(torch.ones(1))
 
     def forward_cue(self, x, cue):
         if cue != 'pose':
@@ -258,18 +269,28 @@ class MultiCueModel(nn.Module):
                 'contextual_feats': contextual_feats,
                 'scale': scale,
                 }
-            feats_list.append(contextual_feats[:, 0, :])
+            feats_list.append(contextual_feats)
         feats = torch.cat(feats_list, dim=-1)
         ret['late_fusion'] = {
-            'logits': self.pred_head(feats)*self.scale, 
-            'scale': self.scale,
+            'logits': self.lf_pred_head(feats[:, 0, :])*self.lf_scale, 
+            'scale': self.lf_scale,
             }
         ret.update(self.align_local_seq(ret, 'local_feats'))
+
+        input_emb = self.proj(feats) + self.pos_emb
+        x = self.long_term_model(input_emb)
+        logits = self.mf_pred_head(x[:, 0, :])
+        ret['msa_fuse'] = {
+            'logits': logits*self.mf_scale, 
+            'scale': self.mf_scale,
+            }
+
         ret['local_glocal_fusion'] = {
             'logits': sum(ret[i]['logits'] for i in ret.keys())/float(len(self.cue))*self.local_glocal_scale, 
             # + sum(ret[i]['logits'] for i in ret.keys() if 'local_align' in i)/float(len(self.cue)), 
             'scale': self.local_glocal_scale,
             }
+
         # ret['mutual_distill_loss/framewise'] = self.mutual_dialign_local_seqstill(ret, 'framewise_feats')
         # ret['mutual_distill_loss/contextual'] = self.mutual_distill(ret, 'contextual_feats')
         return ret
