@@ -60,7 +60,7 @@ class RGBCueModel(nn.Module):
         x = x + self.pos_emb
         x = self.long_term_model(x)
         contextual_feats = x
-        logits = self.pred_head(x[:, 0, :])*self.scale
+        logits = torch.max(self.pred_head(x), dim=1)[0]*self.scale
         return logits, framewise_feats, contextual_feats, self.scale
 
 
@@ -109,7 +109,7 @@ class OpticalFlowCueModel(nn.Module):
         x = x + self.pos_emb
         x = self.long_term_model(x)
         contextual_feats = x
-        logits = self.pred_head(x[:, 0, :])*self.scale
+        logits = torch.max(self.pred_head(x), dim=1)[0]*self.scale
         return logits, framewise_feats, contextual_feats, self.scale
 
 
@@ -146,7 +146,7 @@ class PoseCueModel(nn.Module):
         x = x.permute(0, 2, 1) + self.pos_emb
         x = self.long_term_model(x)
         contextual_feats = x
-        logits = self.pred_head(x[:, 0, :])*self.scale
+        logits = torch.max(self.pred_head(x), dim=1)[0]*self.scale
         return logits, framewise_feats, contextual_feats, self.scale
 
 
@@ -258,12 +258,13 @@ class MultiCueModel(nn.Module):
                 'contextual_feats': contextual_feats,
                 'scale': scale,
                 }
-            feats_list.append(contextual_feats[:, 0, :])
+            feats_list.append(contextual_feats)
         feats = torch.cat(feats_list, dim=-1)
         ret['late_fusion'] = {
-            'logits': self.pred_head(feats)*self.scale, 
+            'logits': torch.max(self.pred_head(feats), dim=1)[0]*self.scale, 
             'scale': self.scale,
             }
+
         ret.update(self.align_local_seq(ret, 'local_feats'))
         ret['local_glocal_fusion'] = {
             'logits': sum(ret[i]['logits'] for i in ret.keys())/float(len(self.cue))*self.local_glocal_scale, 
