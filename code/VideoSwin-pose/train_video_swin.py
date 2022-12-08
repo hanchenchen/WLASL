@@ -196,6 +196,9 @@ def run(configs,
                     confusion_matrix[labels[i].item(), pred[i].item()] += 1
                     if labels[i].item() in sorted_indices[i][:5]:
                         confusion_matrix_top5[labels[i].item(), labels[i].item()] += 1
+                    else:
+                        confusion_matrix_top5[labels[i].item(), 0] += 1
+
                     confusion_matrix_float[labels[i].item()] += logits[i].detach().cpu().numpy()
 
                 loss = loss / num_steps_per_update
