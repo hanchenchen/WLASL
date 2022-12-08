@@ -78,7 +78,32 @@ def pose_filtering(video_path):
     # print(video_path, start_index, end_index, len(frame_paths))
     return frame_paths[start_index:end_index]
 
-def load_rgb_frames(frame_paths, sampler, img_norm, img_index_map, index_view_img_map, split):
+def get_pose(frame_paths):
+
+    pose_path = frame_paths[0].replace('rgb-480x320', 'openpose-res').replace('.jpg', '_keypoints.json')
+    pose = json.load(open(pose_path, 'r'))['people'][0]
+    shoudler = (pose['pose_keypoints_2d'][2*3] - pose['pose_keypoints_2d'][5*3])**2
+    shoudler += (pose['pose_keypoints_2d'][2*3+1] - pose['pose_keypoints_2d'][5*3+1])**2
+    shoudler = shoudler**0.5
+    center_x = (pose['pose_keypoints_2d'][2*3] + pose['pose_keypoints_2d'][5*3])/2.0
+    center_y = (pose['pose_keypoints_2d'][2*3+1] + pose['pose_keypoints_2d'][5*3+1])/2.0
+    center = torch.tensor([center_x, center_y])
+    poses = []
+    for poses_idx in range(len(frame_paths)):
+        pose_path = frame_paths[poses_idx].replace('rgb-480x320', 'openpose-res').replace('.jpg', '_keypoints.json')
+        pose = json.load(open(pose_path, 'r'))['people'][0]
+        pose_keypoints_2d = torch.tensor(pose['pose_keypoints_2d']).reshape(-1, 3)[:, :2].reshape(-1)
+        face_keypoints_2d = torch.tensor(pose['face_keypoints_2d']).reshape(-1, 3)[:, :2].reshape(-1)
+        hand_left_keypoints_2d = torch.tensor(pose['hand_left_keypoints_2d']).reshape(-1, 3)[:, :2].reshape(-1)
+        hand_right_keypoints_2d = torch.tensor(pose['hand_right_keypoints_2d']).reshape(-1, 3)[:, :2].reshape(-1)
+        kpts = torch.cat([pose_keypoints_2d,face_keypoints_2d,hand_left_keypoints_2d,hand_right_keypoints_2d], dim=0)
+        kpts = (kpts.reshape(-1, 2) - center.reshape(-1, 2)).reshape(-1)/shoudler
+        poses.append(
+            kpts
+        )
+    return poses
+
+def load_rgb_frames(frame_paths, sampler, img_norm, img_index_map, index_view_img_map, split, pose_list):
     frames = []
     right_hand = []
     left_hand = []
@@ -90,51 +115,16 @@ def load_rgb_frames(frame_paths, sampler, img_norm, img_index_map, index_view_im
     face_indexes = list(sampler({'start_index': 0, 'total_frames': len(frame_paths)})['frame_inds'])
     poses_indexes = list(sampler({'start_index': 0, 'total_frames': len(frame_paths)})['frame_inds'])
     label, signer, record_time, view, img_name = frame_paths[0].split('/')[-5:]
-    ratio = 0.0
-    if torch.rand(()) < ratio:
-        pose_view = random.choice(['camera_0', 'camera_1', 'camera_2', 'camera_3'])
-    else:
-        pose_view = view
-    if torch.rand(()) < ratio:
-        right_hand_view = random.choice(['camera_0', 'camera_1', 'camera_2', 'camera_3'])
-    else:
-        right_hand_view = view
-    if torch.rand(()) < ratio:
-        left_hand_view = random.choice(['camera_0', 'camera_1', 'camera_2', 'camera_3'])
-    else:
-        left_hand_view = view
-    if torch.rand(()) < ratio:
-        face_view = random.choice(['camera_0', 'camera_1', 'camera_2', 'camera_3'])
-    else:
-        face_view = view
 
-    if split!="train":
-        pose_path = frame_paths[0].replace('rgb-480x320', 'openpose-res').replace('.jpg', '_keypoints.json')
-    else:
-        pose_path = view_aug(frame_paths[0], img_index_map, index_view_img_map, pose_view).replace('rgb-480x320', 'openpose-res').replace('.jpg', '_keypoints.json')
-    pose = json.load(open(pose_path, 'r'))['people'][0]
-    shoudler = (pose['pose_keypoints_2d'][2*3] - pose['pose_keypoints_2d'][5*3])**2
-    shoudler += (pose['pose_keypoints_2d'][2*3+1] - pose['pose_keypoints_2d'][5*3+1])**2
-    shoudler = shoudler**0.5
-    center_x = (pose['pose_keypoints_2d'][2*3] + pose['pose_keypoints_2d'][5*3])/2.0
-    center_y = (pose['pose_keypoints_2d'][2*3+1] + pose['pose_keypoints_2d'][5*3+1])/2.0
-    center = torch.tensor([center_x, center_y])
     for frames_idx, right_hand_idx, left_hand_idx, face_idx, poses_idx in zip(frames_indexes, right_hand_indexes, left_hand_indexes, face_indexes, poses_indexes):
         img = cv2.imread(frame_paths[frames_idx])[:, :, [2, 1, 0]]
-        if split!="train":
-            right_hand_path = frame_paths[right_hand_idx].replace('rgb-480x320', 'right-hand-224x224')
-        else:
-            right_hand_path = view_aug(frame_paths[right_hand_idx], img_index_map, index_view_img_map, right_hand_view).replace('rgb-480x320', 'right-hand-224x224')
+        right_hand_path = frame_paths[right_hand_idx].replace('rgb-480x320', 'right-hand-224x224')
         right_hand_img = cv2.imread(right_hand_path)[:, :, [2, 1, 0]]
-        if split!="train":
-            left_hand_path = frame_paths[left_hand_idx].replace('rgb-480x320', 'left-hand-224x224')
-        else:
-            left_hand_path = view_aug(frame_paths[left_hand_idx], img_index_map, index_view_img_map, left_hand_view).replace('rgb-480x320', 'left-hand-224x224')
+
+        left_hand_path = frame_paths[left_hand_idx].replace('rgb-480x320', 'left-hand-224x224')
         left_hand_img = cv2.imread(left_hand_path)[:, :, [2, 1, 0]]
-        if split!="train":
-            face_path = frame_paths[face_idx].replace('rgb-480x320', 'face-224x224')
-        else:
-            face_path = view_aug(frame_paths[face_idx], img_index_map, index_view_img_map, face_view).replace('rgb-480x320', 'face-224x224')
+
+        face_path = frame_paths[face_idx].replace('rgb-480x320', 'face-224x224')
         face_hand_img = cv2.imread(face_path)[:, :, [2, 1, 0]]
         
         # img = cv2.cvtColor(img, cv2.COLOR_BAYER_GR2RGB)
@@ -158,20 +148,8 @@ def load_rgb_frames(frame_paths, sampler, img_norm, img_index_map, index_view_im
         right_hand.append(np.asarray(right_hand_img, dtype=np.float32))
         left_hand.append(np.asarray(left_hand_img, dtype=np.float32))
         face.append(np.asarray(face_hand_img, dtype=np.float32))
-
-        if split!="train":
-            pose_path = frame_paths[poses_idx].replace('rgb-480x320', 'openpose-res').replace('.jpg', '_keypoints.json')
-        else:
-            pose_path = view_aug(frame_paths[poses_idx], img_index_map, index_view_img_map, face_view).replace('rgb-480x320', 'openpose-res').replace('.jpg', '_keypoints.json')
-        pose = json.load(open(pose_path, 'r'))['people'][0]
-        pose_keypoints_2d = torch.tensor(pose['pose_keypoints_2d']).reshape(-1, 3)[:, :2].reshape(-1)
-        face_keypoints_2d = torch.tensor(pose['face_keypoints_2d']).reshape(-1, 3)[:, :2].reshape(-1)
-        hand_left_keypoints_2d = torch.tensor(pose['hand_left_keypoints_2d']).reshape(-1, 3)[:, :2].reshape(-1)
-        hand_right_keypoints_2d = torch.tensor(pose['hand_right_keypoints_2d']).reshape(-1, 3)[:, :2].reshape(-1)
-        kpts = torch.cat([pose_keypoints_2d,face_keypoints_2d,hand_left_keypoints_2d,hand_right_keypoints_2d], dim=0)
-        kpts = (kpts.reshape(-1, 2) - center.reshape(-1, 2)).reshape(-1)/shoudler
         poses.append(
-            kpts
+            pose_list[poses_idx]
         )
     return np.asarray(frames, dtype=np.float32), np.asarray(right_hand, dtype=np.float32), np.asarray(left_hand, dtype=np.float32), np.asarray(face, dtype=np.float32), poses
 
@@ -289,8 +267,9 @@ def make_dataset(split, root, num_classes,
                 if signer not in root[split]:
                     continue
             label = int(label)
-            
-            dataset.append((label, path, pose_filtering(path)))
+            valid_frame_path = pose_filtering(path)
+            valid_pose_list = get_pose(valid_frame_path)
+            dataset.append((label, path, valid_frame_path, valid_pose_list))
             i += 1
 
     return dataset, img_index_map, index_view_img_map
@@ -549,8 +528,8 @@ class CAPG_CSL(data_utl.Dataset):
         Returns:
             tuple: (image, target) where target is class_index of the target class.
         """
-        label, video_path, frame_paths = self.data[index]
-        imgs, right_hand, left_hand, face, poses = load_rgb_frames(frame_paths, self.sample_frame, self.img_norm, self.img_index_map, self.index_view_img_map, self.split)
+        label, video_path, frame_paths, pose_list = self.data[index]
+        imgs, right_hand, left_hand, face, poses = load_rgb_frames(frame_paths, self.sample_frame, self.img_norm, self.img_index_map, self.index_view_img_map, self.split, pose_list)
 
         imgs = self.transforms(imgs)
         right_hand = self.transforms(right_hand)

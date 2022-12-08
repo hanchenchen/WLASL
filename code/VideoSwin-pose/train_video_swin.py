@@ -2,7 +2,7 @@ import os
 import argparse
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = '5'
+os.environ["CUDA_VISIBLE_DEVICES"] = '6'
 device_ids = [0]
 import torch
 import torch.nn as nn
@@ -71,7 +71,7 @@ def run(configs,
                                            videotransforms.RandomHorizontalFlip(), ])
     test_transforms = transforms.Compose([videotransforms.CenterCrop(224)])
 
-    dataset = Dataset('train', root, train_transforms, hand_transforms=test_transforms)
+    dataset = Dataset('train', root, train_transforms, hand_transforms=test_transforms, num_classes=101)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=configs.batch_size, shuffle=True, num_workers=0,
                                              pin_memory=True)
     print('Train', len(dataset))
@@ -83,7 +83,7 @@ def run(configs,
     test_dataloader = {}
     for view in view_list:
         phase_list.append(f'val/{view}')
-        val_dataset[f'val/{view}'] = Dataset('test', root, test_transforms, view_list=[view])
+        val_dataset[f'val/{view}'] = Dataset('test', root, test_transforms, view_list=[view], num_classes=101)
         val_dataloader[f'val/{view}'] = torch.utils.data.DataLoader(val_dataset[f'val/{view}'] , batch_size=configs.batch_size, shuffle=True, num_workers=2,pin_memory=False)
         print(f'val/{view}', len(val_dataset[f'val/{view}']))
     # for view in view_list:
@@ -124,7 +124,7 @@ def run(configs,
     # train it
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=10, factor=0.1)
     max_epoch = 100
-    configs.max_steps = max_epoch*len(dataset)# //configs.batch_size
+    configs.max_steps = max_epoch*len(dataset)//configs.batch_size
     scheduler = get_cosine_schedule_with_warmup(
                 optimizer,
                 num_warmup_steps=0,
@@ -369,7 +369,7 @@ if __name__ == '__main__':
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['maodonglai'], 'test': ['liya']}
     # root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20']}
 
-    save_model = f'logdir/train_{root["train"][0]}/1208-106-mutual-distill-105'
+    save_model = f'logdir/train_{root["train"][0]}/1208-107-capg-100-106'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
