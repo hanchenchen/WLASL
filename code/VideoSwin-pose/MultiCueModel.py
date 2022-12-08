@@ -217,8 +217,12 @@ class MultiCueModel(nn.Module):
         self.local_glocal_scale = nn.Parameter(torch.ones(1))     
 
         glo_dim = 768*3
-        self.crop_pred_head = nn.Sequential(
+        self.crop_pred_proj = nn.Sequential(
             nn.Linear(glo_dim, glo_dim),
+            nn.Linear(glo_dim, 768),
+        )
+        self.crop_pred_head = nn.Sequential(
+            nn.Linear(768, glo_dim),
             nn.Linear(glo_dim, num_classes),
         )
         self.crop_scale = nn.Parameter(torch.ones(1))
@@ -235,8 +239,8 @@ class MultiCueModel(nn.Module):
 
     def mutual_distill(self, ret, key):
         l = 0.0
-        for x in self.cue:
-            for y in self.cue:
+        for x in ['full_rgb', 'crop_cue', 'pose']:
+            for y in ['full_rgb', 'crop_cue', 'pose']:
                 if x != y:
                     l = l - F.cosine_similarity(ret[x][key], ret[y][key], dim=-1).mean()
         return l
@@ -268,17 +272,18 @@ class MultiCueModel(nn.Module):
                 }
             feats_list.append(contextual_feats[:, 0, :])
             if key in ['right_hand', 'left_hand', 'face']:
-                crop_feats_list.append(contextual_feats[:, 0, :])
+                crop_feats_list.append(contextual_feats)
 
         feats = torch.cat(feats_list, dim=-1)
         ret['late_fusion'] = {
             'logits': self.pred_head(feats)*self.scale, 
             'scale': self.scale,
             }
-        crop_feats = torch.cat(crop_feats_list, dim=-1)
+        crop_feats =  self.crop_pred_proj(torch.cat(crop_feats_list, dim=-1))
         ret['crop_cue'] = {
-            'logits': self.crop_pred_head(crop_feats)*self.crop_scale, 
+            'logits': self.crop_pred_head(crop_feats[:, 0, :])*self.crop_scale, 
             'scale': self.crop_scale,
+            'contextual_feats': crop_feats,
             }
         ret.update(self.align_local_seq(ret, 'local_feats'))
         ret['local_glocal_fusion'] = {
@@ -287,5 +292,5 @@ class MultiCueModel(nn.Module):
             'scale': self.local_glocal_scale,
             }
         # ret['mutual_distill_loss/framewise'] = self.mutual_dialign_local_seqstill(ret, 'framewise_feats')
-        # ret['mutual_distill_loss/contextual'] = self.mutual_distill(ret, 'contextual_feats')
+        ret['mutual_distill_loss/contextual'] = self.mutual_distill(ret, 'contextual_feats')
         return ret
