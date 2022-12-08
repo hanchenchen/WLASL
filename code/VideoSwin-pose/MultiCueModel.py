@@ -214,7 +214,14 @@ class MultiCueModel(nn.Module):
         )
         self.scale = nn.Parameter(torch.ones(1))
 
-        self.local_glocal_scale = nn.Parameter(torch.ones(1))
+        self.local_glocal_scale = nn.Parameter(torch.ones(1))     
+
+        glo_dim = 768*3
+        self.crop_pred_head = nn.Sequential(
+            nn.Linear(glo_dim, glo_dim),
+            nn.Linear(glo_dim, num_classes),
+        )
+        self.crop_scale = nn.Parameter(torch.ones(1))
 
     def forward_cue(self, x, cue):
         if cue != 'pose':
@@ -249,6 +256,7 @@ class MultiCueModel(nn.Module):
     def forward(self, inputs):
         ret = {}
         feats_list = []
+        crop_feats_list = []
         for key in self.cue:
             value = inputs[key]
             logits, local_feats, contextual_feats, scale = self.forward_cue(value, key)
@@ -259,10 +267,18 @@ class MultiCueModel(nn.Module):
                 'scale': scale,
                 }
             feats_list.append(contextual_feats[:, 0, :])
+            if key in ['right_hand', 'left_hand', 'face']:
+                crop_feats_list.append(contextual_feats[:, 0, :])
+
         feats = torch.cat(feats_list, dim=-1)
         ret['late_fusion'] = {
             'logits': self.pred_head(feats)*self.scale, 
             'scale': self.scale,
+            }
+        crop_feats = torch.cat(crop_feats_list, dim=-1)
+        ret['crop_cue'] = {
+            'logits': self.crop_pred_head(crop_feats)*self.crop_scale, 
+            'scale': self.crop_scale,
             }
         ret.update(self.align_local_seq(ret, 'local_feats'))
         ret['local_glocal_fusion'] = {

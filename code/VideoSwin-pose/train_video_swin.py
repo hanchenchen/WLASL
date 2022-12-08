@@ -101,7 +101,7 @@ def run(configs,
     cue = ['full_rgb', 'right_hand', 'left_hand', 'face', 'pose']
     # cue = ['face']
     # supervised_cue = cue + ['multi_cue', 'late_fusion']
-    supervised_cue = cue + ['late_fusion'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
+    supervised_cue = cue + ['late_fusion', 'crop_cue'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
     # supervised_cue = cue + ['late_fusion'] 
     model = MultiCueModel(cue, num_classes, share_hand_model=False)
 
@@ -155,6 +155,7 @@ def run(configs,
 
             confusion_matrix = np.zeros((num_classes, num_classes), dtype=np.int32)
             confusion_matrix_float = np.zeros((num_classes, num_classes), dtype=np.float)
+            confusion_matrix_top5 = np.zeros((num_classes, num_classes), dtype=np.int32)
             confusion_matrix_cue = {key: np.zeros((num_classes, num_classes), dtype=np.int32) for key in supervised_cue}
             # Iterate over data.
             for data in dataloaders[phase]:
@@ -190,8 +191,11 @@ def run(configs,
                 # scales[f"{phase}/mutual_distill_loss/contextual"] = ret['mutual_distill_loss/contextual'].item()
                 logits = ret['local_glocal_fusion']['logits']
                 pred = torch.argmax(logits, dim=1)
+                sorted_logits, sorted_indices = torch.sort(logits, descending=True, dim=-1)
                 for i in range(logits.shape[0]):
                     confusion_matrix[labels[i].item(), pred[i].item()] += 1
+                    if labels[i].item() in sorted_indices[i][:5]:
+                        confusion_matrix_top5[labels[i].item(), labels[i].item()] += 1
                     confusion_matrix_float[labels[i].item()] += logits[i].detach().cpu().numpy()
 
                 loss = loss / num_steps_per_update
@@ -249,10 +253,17 @@ def run(configs,
                 x_labels=[i for i in range(num_classes)], 
                 y_labels=[i for i in range(num_classes)], 
                 save_path=save_path+f'{epoch}-float.png')
+                confusion_matrix_fig(confusion_matrix_top5, 
+                x_labels=[i for i in range(num_classes)], 
+                y_labels=[i for i in range(num_classes)], 
+                save_path=save_path+f'{epoch}-top5.png')
 
                 val_score = float(np.trace(confusion_matrix)) / np.sum(confusion_matrix)
+                val_score_top5 = float(np.trace(confusion_matrix_top5)) / np.sum(confusion_matrix_top5)
+                
                 acc_cue = {f"{phase}/Accu/"+key: float(np.trace(confusion_matrix_cue[key])) / np.sum(confusion_matrix_cue[key]) for key in confusion_matrix_cue.keys()}
-                val_score_dict[phase] = val_score
+                val_score_dict[phase + '/top1'] = val_score
+                val_score_dict[phase + '/top5'] = val_score_top5
                 val_score_dict['val_loss'] += tot_loss
 
                 localtime = datetime.datetime.fromtimestamp(
@@ -312,13 +323,14 @@ def run(configs,
                     **acc_cue,
                 })
 
-        avg_val_score = sum([v for k, v in val_score_dict.items() if 'camera_' in k]) / 4.0
+        avg_val_score = sum([v for k, v in val_score_dict.items() if 'camera_' in k and 'top1' in k]) / 4.0
+        avg_val_score_top5 = sum([v for k, v in val_score_dict.items() if 'camera_' in k and 'top5' in k]) / 4.0
         # avg_test_score = sum([v for k, v in test_score_dict.items() if 'camera_' in k]) / 4.0
 
         if avg_val_score > best_val_score:
             best_val_score = avg_val_score
             # model_name = f"{save_model}nslt_{str(num_classes)}_{avg_val_score:.3f}_{epoch:05}_{avg_test_score:.3f}.pt"
-            model_name = f"{save_model}nslt_{str(num_classes)}_{avg_val_score:.3f}_{epoch:05}.pt"
+            model_name = f"{save_model}nslt_{str(num_classes)}_{avg_val_score:.3f}_{avg_val_score_top5:.3f}_{epoch:05}.pt"
             torch.save(model.module.state_dict(), model_name)
             seq_model_list = glob(save_model + "nslt_*.pt")
             seq_model_list = sorted(seq_model_list)
@@ -333,7 +345,11 @@ def run(configs,
             ).strftime("%Y-%m-%d %H:%M:%S")
                     
         # log = "[ " + localtime + " ] " + 'Epoch {} Step {} VALIDATION: {} TEST: {}'.format(epoch, steps, val_score_dict, test_score_dict)
-        log = "[ " + localtime + " ] " + 'Epoch {} Step {} VALIDATION: {} {}'.format(epoch, steps, avg_val_score, val_score_dict)
+        log = "[ " + localtime + " ] " + 'Epoch {} Step {} VALIDATION: Top-1 ACC {}  Top-5 ACC {} {} '.format(epoch, 
+        steps, 
+        avg_val_score, 
+        avg_val_score_top5,
+        val_score_dict)
         print(save_model, log)
         with open(save_model + 'acc_val.txt', "a") as f:
             f.writelines(log)
@@ -350,10 +366,10 @@ if __name__ == '__main__':
     
     mode = 'rgb'
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
-    root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['maodonglai'], 'test': ['liya']}
+    root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['liya'], 'test': ['maodonglai']}
     # root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20']}
 
-    save_model = f'logdir/train_{root["train"][0]}/1204-88-sum-all-logits-87'
+    save_model = f'logdir/train_{root["train"][0]}/1208-105-crop_cue-88'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
