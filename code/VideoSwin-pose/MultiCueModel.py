@@ -227,6 +227,13 @@ class MultiCueModel(nn.Module):
         )
         self.crop_scale = nn.Parameter(torch.ones(1))
 
+        self.full_rgb_crop_cue_scale = nn.Parameter(torch.ones(1))
+        self.full_rgb_pose_scale = nn.Parameter(torch.ones(1))
+        self.crop_cue_full_rgb_scale = nn.Parameter(torch.ones(1))
+        self.crop_cue_pose_scale = nn.Parameter(torch.ones(1))
+        self.pose_full_rgb_scale = nn.Parameter(torch.ones(1))
+        self.pose_crop_cue_scale = nn.Parameter(torch.ones(1))
+
     def forward_cue(self, x, cue):
         if cue != 'pose':
             x = x.to(self.device, non_blocking=True)
@@ -242,8 +249,15 @@ class MultiCueModel(nn.Module):
         for x in ['full_rgb', 'crop_cue', 'pose']:
             for y in ['full_rgb', 'crop_cue', 'pose']:
                 if x != y:
-                    l = l - F.cosine_similarity(ret[x][key], ret[y][key], dim=-1).mean()
-        return l
+                    a = ret[x][key]
+                    B, N ,C = a.shape
+                    a = a.reshape(B, N*C)
+                    b = ret[y][key]
+                    b = b.reshape(B, N*C)
+                    logits = (a @ b.T) * eval(f'self.{x}_{y}_scale')
+                    gt = torch.arange(B).to(a).long()
+                    l = l + F.cross_entropy(logits, gt)
+        return l/6.0
 
     def align_local_seq(self, ret, key):
         local_ret = {}
