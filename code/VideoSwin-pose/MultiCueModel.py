@@ -271,20 +271,20 @@ class MultiCueModel(nn.Module):
                 'scale': scale,
                 }
             feats_list.append(contextual_feats[:, 0, :])
-            if key in ['right_hand', 'left_hand', 'face']:
-                crop_feats_list.append(contextual_feats)
+            # if key in ['right_hand', 'left_hand', 'face']:
+            #     crop_feats_list.append(contextual_feats)
 
         feats = torch.cat(feats_list, dim=-1)
         ret['late_fusion'] = {
             'logits': self.pred_head(feats)*self.scale, 
             'scale': self.scale,
             }
-        crop_feats =  self.crop_pred_proj(torch.cat(crop_feats_list, dim=-1))
-        ret['crop_cue'] = {
-            'logits': self.crop_pred_head(crop_feats[:, 0, :])*self.crop_scale, 
-            'scale': self.crop_scale,
-            'contextual_feats': crop_feats,
-            }
+        # crop_feats =  self.crop_pred_proj(torch.cat(crop_feats_list, dim=-1))
+        # ret['crop_cue'] = {
+        #     'logits': self.crop_pred_head(crop_feats[:, 0, :])*self.crop_scale, 
+        #     'scale': self.crop_scale,
+        #     'contextual_feats': crop_feats,
+        #     }
         ret.update(self.align_local_seq(ret, 'local_feats'))
         ret['local_glocal_fusion'] = {
             'logits': sum(ret[i]['logits'] for i in ret.keys())/float(len(self.cue))*self.local_glocal_scale, 
@@ -292,5 +292,5 @@ class MultiCueModel(nn.Module):
             'scale': self.local_glocal_scale,
             }
         # ret['mutual_distill_loss/framewise'] = self.mutual_dialign_local_seqstill(ret, 'framewise_feats')
-        ret['mutual_distill_loss/contextual'] = self.mutual_distill(ret, 'contextual_feats')
+        # ret['mutual_distill_loss/contextual'] = self.mutual_distill(ret, 'contextual_feats')
         return ret
