@@ -205,7 +205,6 @@ class MultiCueModel(nn.Module):
             self.pose_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//4, 768))
             self.pose_seq_scale = nn.Parameter(torch.ones(1))
 
-        # self.local_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//2, 768))
         
         glo_dim = 768*len(cue)
         self.pred_head = nn.Sequential(
@@ -214,18 +213,15 @@ class MultiCueModel(nn.Module):
         )
         self.scale = nn.Parameter(torch.ones(1))
 
-        self.local_glocal_scale = nn.Parameter(torch.ones(1))     
+        self.local_glocal_scale = nn.Parameter(torch.ones(1))  
 
-        glo_dim = 768*3
-        self.crop_pred_proj = nn.Sequential(
+        self.multimodal_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//4, 768))
+        self.multimodal_seq_scale = nn.Parameter(torch.ones(1))
+        self.local_multimodal_proj = nn.Sequential(
             nn.Linear(glo_dim, glo_dim),
             nn.Linear(glo_dim, 768),
-        )
-        self.crop_pred_head = nn.Sequential(
-            nn.Linear(768, glo_dim),
-            nn.Linear(glo_dim, num_classes),
-        )
-        self.crop_scale = nn.Parameter(torch.ones(1))
+        )   
+
 
     def forward_cue(self, x, cue):
         if cue != 'pose':
@@ -247,7 +243,7 @@ class MultiCueModel(nn.Module):
 
     def align_local_seq(self, ret, key):
         local_ret = {}
-        for x in self.cue:
+        for x in self.cue + ['multimodal']:
             local_seq = eval(f'self.{x}_seq')
             local_seq_scale = eval(f'self.{x}_seq_scale')
             logits = F.cosine_similarity(ret[x][key].unsqueeze(1), local_seq, dim=-1).mean(dim=-1)
@@ -260,7 +256,7 @@ class MultiCueModel(nn.Module):
     def forward(self, inputs):
         ret = {}
         feats_list = []
-        crop_feats_list = []
+        local_multimodal_feats_list = []
         for key in self.cue:
             value = inputs[key]
             logits, local_feats, contextual_feats, scale = self.forward_cue(value, key)
@@ -271,8 +267,15 @@ class MultiCueModel(nn.Module):
                 'scale': scale,
                 }
             feats_list.append(contextual_feats[:, 0, :])
+            local_multimodal_feats_list.append(local_feats)
             # if key in ['right_hand', 'left_hand', 'face']:
             #     crop_feats_list.append(contextual_feats)
+     
+        feats = torch.cat(local_multimodal_feats_list, dim=-1)
+        feats = self.local_multimodal_proj(feats)
+        ret['multimodal'] = {
+            'local_feats': feats,
+            }
 
         feats = torch.cat(feats_list, dim=-1)
         ret['late_fusion'] = {
@@ -287,7 +290,7 @@ class MultiCueModel(nn.Module):
         #     }
         ret.update(self.align_local_seq(ret, 'local_feats'))
         ret['local_glocal_fusion'] = {
-            'logits': sum(ret[i]['logits'] for i in ret.keys())/float(len(self.cue))*self.local_glocal_scale, 
+            'logits': sum([ret[i]['logits'] for i in ret.keys() if 'logits' in ret[i]])/float(len(self.cue))*self.local_glocal_scale, 
             # + sum(ret[i]['logits'] for i in ret.keys() if 'local_align' in i)/float(len(self.cue)), 
             'scale': self.local_glocal_scale,
             }
