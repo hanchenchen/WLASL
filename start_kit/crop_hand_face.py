@@ -6,14 +6,14 @@ import os
 import cv2
 import torch
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-root = "/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20"
+root = "/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-100"
 src_dire = f"{root}/rgb-1920x1280"
-resized_dire = f"{root}/rgb-320x320"
-face_dire = f"{root}/face-224x224"
-left_hand_dire = f"{root}/left-hand-224x224"
-right_hand_dire = f"{root}/right-hand-224x224"
+resized_dire = f"{root}/rgb-240x240"
+face_dire = f"{root}/face-240x240"
+left_hand_dire = f"{root}/left-hand-240x240"
+right_hand_dire = f"{root}/right-hand-240x240"
 
-length = 224
+length = 240
 resized_length = 320
 
 for path in tqdm(glob(f"{src_dire}/*/*/*/*/*.jpg")):
@@ -22,6 +22,7 @@ for path in tqdm(glob(f"{src_dire}/*/*/*/*/*.jpg")):
     img = cv2.imread(path)
     print(img.shape)
     w, h, c = img.shape
+    assert c==3
     # label, signer, record_time, view, img_name = path.split('/')[-5:]
     # key = f"{label}/{signer}/{record_time}"
     pose = json.load(open(path.replace('rgb-1920x1280', 'openpose-res').replace('.jpg', '_keypoints.json'), 'r'))['people'][0]
@@ -36,10 +37,13 @@ for path in tqdm(glob(f"{src_dire}/*/*/*/*/*.jpg")):
 
     resized_img = resized_img[:, int(body_center_0)-resized_length//2:int(body_center_0)+resized_length//2]
     os.makedirs(os.path.dirname(path.replace(src_dire, resized_dire)), exist_ok=True)
+    print('resized_img1', resized_img.shape)
+    resized_img = cv2.resize(resized_img, dsize=(length, length))
     cv2.imwrite(path.replace(src_dire, resized_dire), resized_img)
+    print('resized_img2', resized_img.shape)
     cv2.imwrite('resized_dire.jpg', resized_img)
 
-    continue
+    # continue
     shoudler = abs(pose['pose_keypoints_2d'][2*3] - pose['pose_keypoints_2d'][5*3])
     pose_keypoints_2d = torch.tensor(pose['pose_keypoints_2d'])
     face_keypoints_2d = torch.tensor(pose['face_keypoints_2d']).reshape(-1, 3)[:, :2]
@@ -51,6 +55,7 @@ for path in tqdm(glob(f"{src_dire}/*/*/*/*/*.jpg")):
     if face_img is not None:
         os.makedirs(os.path.dirname(path.replace(src_dire, face_dire)), exist_ok=True)
         cv2.imwrite(path.replace(src_dire, face_dire), face_img)
+        print('face_img', face_img.shape)
         cv2.imwrite('face_img.jpg', face_img)
 
     left_center_x = min(max(hand_left_keypoints_2d[9*3], length//2), h - length//2)
@@ -58,6 +63,7 @@ for path in tqdm(glob(f"{src_dire}/*/*/*/*/*.jpg")):
     left_img = img[int(left_center_y)-length//2:int(left_center_y)+length//2, int(left_center_x)-length//2:int(left_center_x)+length//2]
     if left_img is not None:
         os.makedirs(os.path.dirname(path.replace(src_dire, left_hand_dire)), exist_ok=True)
+        print('left_img', left_img.shape)
         cv2.imwrite(path.replace(src_dire, left_hand_dire), left_img)
         cv2.imwrite('left_img.jpg', left_img)
 
@@ -66,6 +72,7 @@ for path in tqdm(glob(f"{src_dire}/*/*/*/*/*.jpg")):
     right_img = img[int(right_center_y)-length//2:int(right_center_y)+length//2, int(right_center_x)-length//2:int(right_center_x)+length//2]
     if right_img is not None:
         os.makedirs(os.path.dirname(path.replace(src_dire, right_hand_dire)), exist_ok=True)
+        print('right_img', right_img.shape)
         cv2.imwrite(path.replace(src_dire, right_hand_dire), right_img)
         cv2.imwrite('right_img.jpg', right_img)
 

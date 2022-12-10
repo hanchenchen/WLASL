@@ -5,10 +5,10 @@ from tqdm import tqdm
 import os
 import cv2
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-src_dire = "/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100/full-rgb"
-tgt_dire = "/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100/full-rgb"
+src_dire = "/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20/bayer-1920x1280"
+tgt_dire = "/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20/rgb-1920x1280"
 
-for path in tqdm(glob(f"{src_dire}/*/liya/*/*/*.jpg")):
+for path in tqdm(glob(f"{src_dire}/*/*/*/*/*.jpg")):
     if '.jpg' not in path:
         continue
     img = cv2.imread(path, 0)
@@ -17,6 +17,6 @@ for path in tqdm(glob(f"{src_dire}/*/liya/*/*/*.jpg")):
     print(img.shape)
     os.makedirs(os.path.dirname(path.replace(src_dire, tgt_dire)), exist_ok=True)
     cv2.imwrite(path.replace(src_dire, tgt_dire), img)
-    cv2.imwrite('test.jpg', img)
+    # cv2.imwrite('test.jpg', img)
     print(path.replace(src_dire, tgt_dire))
     # exit()
