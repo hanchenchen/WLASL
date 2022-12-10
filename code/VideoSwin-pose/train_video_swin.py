@@ -2,7 +2,7 @@ import os
 import argparse
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = '4'
+os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 device_ids = [0]
 import torch
 import torch.nn as nn
@@ -71,19 +71,20 @@ def run(configs,
                                            videotransforms.RandomHorizontalFlip(), ])
     test_transforms = transforms.Compose([videotransforms.CenterCrop(224)])
 
-    dataset = Dataset('train', root, train_transforms, hand_transforms=test_transforms)
+    dataset = Dataset('train', root, train_transforms, hand_transforms=test_transforms, num_classes=51)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=configs.batch_size, shuffle=True, num_workers=0,
                                              pin_memory=True)
     print('Train', len(dataset))
     view_list = ['camera_0', 'camera_1', 'camera_2', 'camera_3']
     phase_list = ['train']
+    phase_list = []
     val_dataset = {}
     val_dataloader = {}
     test_dataset = {}
     test_dataloader = {}
     for view in view_list:
         phase_list.append(f'val/{view}')
-        val_dataset[f'val/{view}'] = Dataset('test', root, test_transforms, view_list=[view])
+        val_dataset[f'val/{view}'] = Dataset('test', root, test_transforms, view_list=[view], num_classes=51)
         val_dataloader[f'val/{view}'] = torch.utils.data.DataLoader(val_dataset[f'val/{view}'] , batch_size=configs.batch_size, shuffle=True, num_workers=2,pin_memory=False)
         print(f'val/{view}', len(val_dataset[f'val/{view}']))
     # for view in view_list:
@@ -124,7 +125,7 @@ def run(configs,
     # train it
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=10, factor=0.1)
     max_epoch = 100
-    configs.max_steps = max_epoch*len(dataset)# //configs.batch_size
+    configs.max_steps = max_epoch*len(dataset) # //configs.batch_size
     scheduler = get_cosine_schedule_with_warmup(
                 optimizer,
                 num_warmup_steps=0,
@@ -155,6 +156,7 @@ def run(configs,
 
             confusion_matrix = np.zeros((num_classes, num_classes), dtype=np.int32)
             confusion_matrix_float = np.zeros((num_classes, num_classes), dtype=np.float)
+            confusion_matrix_top5 = np.zeros((num_classes, num_classes), dtype=np.int32)
             confusion_matrix_cue = {key: np.zeros((num_classes, num_classes), dtype=np.int32) for key in supervised_cue}
             # Iterate over data.
             for data in dataloaders[phase]:
@@ -190,8 +192,14 @@ def run(configs,
                 # scales[f"{phase}/mutual_distill_loss/contextual"] = ret['mutual_distill_loss/contextual'].item()
                 logits = ret['local_glocal_fusion']['logits']
                 pred = torch.argmax(logits, dim=1)
+                sorted_logits, sorted_indices = torch.sort(logits, descending=True, dim=-1)
                 for i in range(logits.shape[0]):
                     confusion_matrix[labels[i].item(), pred[i].item()] += 1
+                    if labels[i].item() in sorted_indices[i][:5]:
+                        confusion_matrix_top5[labels[i].item(), labels[i].item()] += 1
+                    else:
+                        confusion_matrix_top5[labels[i].item(), 0] += 1
+
                     confusion_matrix_float[labels[i].item()] += logits[i].detach().cpu().numpy()
 
                 loss = loss / num_steps_per_update
@@ -249,10 +257,17 @@ def run(configs,
                 x_labels=[i for i in range(num_classes)], 
                 y_labels=[i for i in range(num_classes)], 
                 save_path=save_path+f'{epoch}-float.png')
+                confusion_matrix_fig(confusion_matrix_top5, 
+                x_labels=[i for i in range(num_classes)], 
+                y_labels=[i for i in range(num_classes)], 
+                save_path=save_path+f'{epoch}-top5.png')
 
                 val_score = float(np.trace(confusion_matrix)) / np.sum(confusion_matrix)
+                val_score_top5 = float(np.trace(confusion_matrix_top5)) / np.sum(confusion_matrix_top5)
+                
                 acc_cue = {f"{phase}/Accu/"+key: float(np.trace(confusion_matrix_cue[key])) / np.sum(confusion_matrix_cue[key]) for key in confusion_matrix_cue.keys()}
-                val_score_dict[phase] = val_score
+                val_score_dict[phase + '/top1'] = val_score
+                val_score_dict[phase + '/top5'] = val_score_top5
                 val_score_dict['val_loss'] += tot_loss
 
                 localtime = datetime.datetime.fromtimestamp(
@@ -312,13 +327,14 @@ def run(configs,
                     **acc_cue,
                 })
 
-        avg_val_score = sum([v for k, v in val_score_dict.items() if 'camera_' in k]) / 4.0
+        avg_val_score = sum([v for k, v in val_score_dict.items() if 'camera_' in k and 'top1' in k]) / 4.0
+        avg_val_score_top5 = sum([v for k, v in val_score_dict.items() if 'camera_' in k and 'top5' in k]) / 4.0
         # avg_test_score = sum([v for k, v in test_score_dict.items() if 'camera_' in k]) / 4.0
 
         if avg_val_score > best_val_score:
             best_val_score = avg_val_score
             # model_name = f"{save_model}nslt_{str(num_classes)}_{avg_val_score:.3f}_{epoch:05}_{avg_test_score:.3f}.pt"
-            model_name = f"{save_model}nslt_{str(num_classes)}_{avg_val_score:.3f}_{epoch:05}.pt"
+            model_name = f"{save_model}nslt_{str(num_classes)}_{avg_val_score:.3f}_{avg_val_score_top5:.3f}_{epoch:05}.pt"
             torch.save(model.module.state_dict(), model_name)
             seq_model_list = glob(save_model + "nslt_*.pt")
             seq_model_list = sorted(seq_model_list)
@@ -333,7 +349,11 @@ def run(configs,
             ).strftime("%Y-%m-%d %H:%M:%S")
                     
         # log = "[ " + localtime + " ] " + 'Epoch {} Step {} VALIDATION: {} TEST: {}'.format(epoch, steps, val_score_dict, test_score_dict)
-        log = "[ " + localtime + " ] " + 'Epoch {} Step {} VALIDATION: {} {}'.format(epoch, steps, avg_val_score, val_score_dict)
+        log = "[ " + localtime + " ] " + 'Epoch {} Step {} VALIDATION: Top-1 ACC {}  Top-5 ACC {} {} '.format(epoch, 
+        steps, 
+        avg_val_score, 
+        avg_val_score_top5,
+        val_score_dict)
         print(save_model, log)
         with open(save_model + 'acc_val.txt', "a") as f:
             f.writelines(log)
@@ -350,15 +370,15 @@ if __name__ == '__main__':
     
     mode = 'rgb'
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
-    root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['liya'], 'test': ['maodonglai']}
+    root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['maodonglai'], 'test': ['liya']}
     # root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20']}
 
-    save_model = f'logdir/train_{root["train"][0]}/1205-92-pose-standardization-88'
+    save_model = f'logdir/train_{root["train"][0]}/1210-117-wo-m-align-112'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
-    # weights = 'checkpoints/nslt_100_004170_0.010638.pt'
-    weights = None
+    weights = 'logdir/train_maodonglai/1204-88-sum-all-logits-87/nslt_51_0.910_00088.pt'
+    # weights = None
     config_file = 'configfiles/capg20.ini'
 
     configs = Config(config_file)
