@@ -2,7 +2,7 @@ import os
 import argparse
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+os.environ["CUDA_VISIBLE_DEVICES"] = '4'
 device_ids = [0]
 import torch
 import torch.nn as nn
@@ -28,7 +28,7 @@ from glob import glob
 import pytz
 # from datasets.nslt_dataset import NSLT as Dataset
 # from datasets.nslt_dataset import NSLT as Dataset
-from datasets.capg_csl_dataset_sample_sepa import CAPG_CSL as Dataset
+from datasets.capg_csl_dataset_sample_sepa_240x240 import CAPG_CSL as Dataset
 import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -71,7 +71,7 @@ def run(configs,
                                            videotransforms.RandomHorizontalFlip(), ])
     test_transforms = transforms.Compose([videotransforms.CenterCrop(224)])
 
-    dataset = Dataset('train', root, train_transforms, hand_transforms=test_transforms, num_classes=51)
+    dataset = Dataset('train', root, train_transforms, num_classes=51)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=configs.batch_size, shuffle=True, num_workers=0,
                                              pin_memory=True)
     print('Train', len(dataset))
@@ -101,7 +101,7 @@ def run(configs,
     cue = ['full_rgb', 'right_hand', 'left_hand', 'face', 'pose']
     # cue = ['face']
     # supervised_cue = cue + ['multi_cue', 'late_fusion']
-    supervised_cue = cue + ['late_fusion'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
+    supervised_cue = cue + ['late_fusion', 'local_align/multimodal'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
     # supervised_cue = cue + ['late_fusion'] 
     model = MultiCueModel(cue, supervised_cue, num_classes, share_hand_model=False)
 
@@ -369,10 +369,10 @@ if __name__ == '__main__':
     
     mode = 'rgb'
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
-    root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['liya'], 'test': ['maodonglai']}
-    # root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20']}
+    # root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['liya'], 'test': ['maodonglai']}
+    root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-100'], 'train': ['liya'], 'test': ['maodonglai']}
 
-    save_model = f'logdir/train_{root["train"][0]}/1210-117-wo-m-align-112'
+    save_model = f'logdir/train_{root["train"][0]}/1210-118-240x240-112'
     os.makedirs(save_model, exist_ok=True)
     train_split = 'preprocess/nslt_100.json'
 
