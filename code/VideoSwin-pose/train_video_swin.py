@@ -101,9 +101,9 @@ def run(configs,
     cue = ['full_rgb', 'right_hand', 'left_hand', 'face', 'pose']
     # cue = ['face']
     # supervised_cue = cue + ['multi_cue', 'late_fusion']
-    supervised_cue = cue + ['late_fusion', 'local_align/multimodal'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
+    supervised_cue = cue + ['late_fusion', 'local_align/multimodal'] + [f'local_align/{i}' for i in cue]
     # supervised_cue = cue + ['late_fusion'] 
-    model = MultiCueModel(cue, num_classes, share_hand_model=False)
+    model = MultiCueModel(cue, supervised_cue, num_classes, share_hand_model=False)
 
     if weights:
         print('loading weights {}'.format(weights))

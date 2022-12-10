@@ -154,11 +154,13 @@ class MultiCueModel(nn.Module):
     def __init__(
         self,
         cue,
+        supervised_cue,
         num_classes,
         share_hand_model=True
     ):
         super(MultiCueModel, self).__init__()
         self.cue = cue
+        self.supervised_cue = supervised_cue
         self.num_classes = num_classes
         self.device = torch.device("cuda")
         frame_len = 32
@@ -290,7 +292,7 @@ class MultiCueModel(nn.Module):
         #     }
         ret.update(self.align_local_seq(ret, 'local_feats'))
         ret['local_glocal_fusion'] = {
-            'logits': sum([ret[i]['logits'] for i in ret.keys() if 'logits' in ret[i]])/float(len(self.cue))*self.local_glocal_scale, 
+            'logits': sum([ret[i]['logits'] for i in self.supervised_cue if i != 'local_glocal_fusion'])/float(len(self.cue))*self.local_glocal_scale, 
             # + sum(ret[i]['logits'] for i in ret.keys() if 'local_align' in i)/float(len(self.cue)), 
             'scale': self.local_glocal_scale,
             }
