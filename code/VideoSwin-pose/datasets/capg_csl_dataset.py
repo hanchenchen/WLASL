@@ -114,6 +114,7 @@ def load_rgb_frames(frame_paths, sampler, img_norm, img_index_map, index_view_im
     left_hand_indexes = frames_indexes
     face_indexes = frames_indexes
     poses_indexes = frames_indexes
+    print('together', end = '')
     label, signer, record_time, view, img_name = frame_paths[0].split('/')[-5:]
 
     for frames_idx, right_hand_idx, left_hand_idx, face_idx, poses_idx in zip(frames_indexes, right_hand_indexes, left_hand_indexes, face_indexes, poses_indexes):
