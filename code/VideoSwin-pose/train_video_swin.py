@@ -394,9 +394,9 @@ if __name__ == '__main__':
 
     exp_name = '1211-128-wo-face-112'
 
-    # root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['maodonglai'], 'test': ['liya']}
-    # save_model = f'logdir/train_{root["train"][0]}/{exp_name}'
-    # train_(root, save_model)
+    root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['maodonglai'], 'test': ['liya']}
+    save_model = f'logdir/train_{root["train"][0]}/{exp_name}'
+    train_(root, save_model)
     
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['liya'], 'test': ['maodonglai']}
     save_model = f'logdir/train_{root["train"][0]}/{exp_name}'
