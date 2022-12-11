@@ -2,7 +2,7 @@ import os
 import argparse
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = '6'
+os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 device_ids = [0]
 import torch
 import torch.nn as nn
@@ -101,7 +101,7 @@ def run(configs,
     cue = ['full_rgb', 'right_hand', 'left_hand', 'face', 'pose']
     # cue = ['face']
     # supervised_cue = cue + ['late_fusion', 'local_align/multimodal'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
-    supervised_cue = cue + ['local_align/multimodal'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
+    supervised_cue = ['late_fusion', 'local_align/multimodal'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
     model = MultiCueModel(cue, supervised_cue, num_classes, share_hand_model=False)
 
     if weights:
@@ -363,15 +363,13 @@ def run(configs,
             # **test_score_dict,
         })
 
-if __name__ == '__main__':
+def train_(root, save_model):
     # WLASL setting
     
     mode = 'rgb'
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
-    root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['maodonglai'], 'test': ['liya']}
     # root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20']}
 
-    save_model = f'logdir/train_{root["train"][0]}/1211-125-wo-m-cls-112'
     os.makedirs(save_model, exist_ok=False)
     train_split = 'preprocess/nslt_100.json'
 
@@ -391,3 +389,15 @@ if __name__ == '__main__':
         # job_type=_config.work_dir.split("/")[-3],
     )
     run(configs=configs, mode=mode, root=root, save_model=save_model+'/', train_split=train_split, weights=weights)
+
+if __name__ == '__main__':
+
+    exp_name = '1211-126-wo-u-cls-112'
+
+    # root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['maodonglai'], 'test': ['liya']}
+    # save_model = f'logdir/train_{root["train"][0]}/{exp_name}'
+    # train_(root, save_model)
+    
+    root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['liya'], 'test': ['maodonglai']}
+    save_model = f'logdir/train_{root["train"][0]}/{exp_name}'
+    train_(root, save_model)
