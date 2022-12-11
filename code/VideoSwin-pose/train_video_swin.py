@@ -2,7 +2,7 @@ import os
 import argparse
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+os.environ["CUDA_VISIBLE_DEVICES"] = '5'
 device_ids = [0]
 import torch
 import torch.nn as nn
@@ -370,10 +370,10 @@ if __name__ == '__main__':
     mode = 'rgb'
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
     # root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['liya'], 'test': ['maodonglai']}
-    root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-100'], 'train': ['maodonglai'], 'test': ['liya']}
+    root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-100'], 'train': ['liya'], 'test': ['maodonglai']}
 
-    save_model = f'logdir/train_{root["train"][0]}/1210-118-240x240-112'
-    os.makedirs(save_model, exist_ok=True)
+    save_model = f'logdir/train_{root["train"][0]}/1211-122-k1-k1-118'
+    os.makedirs(save_model, exist_ok=False)
     train_split = 'preprocess/nslt_100.json'
 
     # weights = 'checkpoints/nslt_100_004170_0.010638.pt'
