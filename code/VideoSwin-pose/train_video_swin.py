@@ -369,11 +369,11 @@ if __name__ == '__main__':
     
     mode = 'rgb'
     # root = {'word': '/raid_han/sign-dataset/wlasl/videos'}
-    root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['liya'], 'test': ['maodonglai']}
+    root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['maodonglai'], 'test': ['liya']}
     # root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20']}
 
     save_model = f'logdir/train_{root["train"][0]}/1210-117-wo-m-align-112'
-    os.makedirs(save_model, exist_ok=True)
+    os.makedirs(save_model, exist_ok=False)
     train_split = 'preprocess/nslt_100.json'
 
     # weights = 'checkpoints/nslt_100_004170_0.010638.pt'
