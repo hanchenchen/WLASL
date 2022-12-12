@@ -2,7 +2,7 @@ import os
 import argparse
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = '4'
+os.environ["CUDA_VISIBLE_DEVICES"] = '5'
 device_ids = [0]
 import torch
 import torch.nn as nn
@@ -99,7 +99,7 @@ def run(configs,
     num_classes = dataset.num_classes
     
     # cue = ['full_rgb', 'right_hand', 'left_hand', 'face', 'pose']
-    cue = ['full_rgb']
+    cue = ['pose']
     # supervised_cue = cue + ['late_fusion', 'local_align/multimodal'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
     supervised_cue = cue + ['late_fusion', 'local_align/multimodal'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
     model = MultiCueModel(cue, supervised_cue, num_classes, share_hand_model=False)
@@ -392,7 +392,7 @@ def train_(root, save_model):
 
 if __name__ == '__main__':
 
-    exp_name = '1212-136-only-full_rgb-112'
+    exp_name = '1212-137-only-pose-112'
 
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['maodonglai'], 'test': ['liya']}
     save_model = f'logdir/train_{root["train"][0]}/{exp_name}'
