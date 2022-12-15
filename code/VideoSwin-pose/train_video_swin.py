@@ -2,7 +2,7 @@ import os
 import argparse
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = '5'
+os.environ["CUDA_VISIBLE_DEVICES"] = '6'
 device_ids = [0]
 import torch
 import torch.nn as nn
@@ -28,7 +28,7 @@ from glob import glob
 import pytz
 # from datasets.nslt_dataset import NSLT as Dataset
 # from datasets.nslt_dataset import NSLT as Dataset
-from datasets.capg_csl_dataset_sample_sepa_wo_filtering import CAPG_CSL as Dataset
+from datasets.capg_csl_dataset_sample_sepa import CAPG_CSL as Dataset
 import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -71,7 +71,7 @@ def run(configs,
                                            videotransforms.RandomHorizontalFlip(), ])
     test_transforms = transforms.Compose([videotransforms.CenterCrop(224)])
 
-    dataset = Dataset('train', root, train_transforms, hand_transforms=test_transforms, num_classes=51)
+    dataset = Dataset('train', root, train_transforms, hand_transforms=test_transforms, num_classes=101)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=configs.batch_size, shuffle=True, num_workers=0,
                                              pin_memory=True)
     print('Train', len(dataset))
@@ -83,7 +83,7 @@ def run(configs,
     test_dataloader = {}
     for view in view_list:
         phase_list.append(f'val/{view}')
-        val_dataset[f'val/{view}'] = Dataset('test', root, test_transforms, view_list=[view], num_classes=51)
+        val_dataset[f'val/{view}'] = Dataset('test', root, test_transforms, view_list=[view], num_classes=101)
         val_dataloader[f'val/{view}'] = torch.utils.data.DataLoader(val_dataset[f'val/{view}'] , batch_size=configs.batch_size, shuffle=True, num_workers=2,pin_memory=False)
         print(f'val/{view}', len(val_dataset[f'val/{view}']))
     # for view in view_list:
@@ -392,7 +392,7 @@ def train_(root, save_model):
 
 if __name__ == '__main__':
 
-    exp_name = '1213-144-wo-filtering-112'
+    exp_name = '1214-145-cls100-112'
 
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['maodonglai'], 'test': ['liya']}
     save_model = f'logdir/train_{root["train"][0]}/{exp_name}'
