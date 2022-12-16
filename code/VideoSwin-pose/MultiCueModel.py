@@ -46,6 +46,8 @@ class RGBCueModel(nn.Module):
         )
         self.short_term_model.init_weights('checkpoints/swin/swin_tiny_patch244_window877_kinetics400_1k.pth')
         self.pos_emb = nn.Parameter(torch.randn(1, frame_len//2, hidden_dim))
+        self.u_cls_emb = nn.Parameter(torch.randn(1, 1, hidden_dim))
+        self.m_cls_emb = nn.Parameter(torch.randn(1, 1, hidden_dim))
         encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_dim, nhead=8, batch_first=True)
         self.long_term_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
         self.pred_head = nn.Linear(hidden_dim, num_classes)
@@ -58,9 +60,10 @@ class RGBCueModel(nn.Module):
         x = x.mean(dim=2)                
         framewise_feats = self.local_align_model(x.permute(0, 2, 1)).permute(0, 2, 1)
         x = x + self.pos_emb
+        x = torch.cat([self.m_cls_emb.repeat(x.shape[0], 1, 1), self.u_cls_emb.repeat(x.shape[0], 1, 1), x], dim=1)
         x = self.long_term_model(x)
         contextual_feats = x
-        logits = self.pred_head(x[:, 0, :])*self.scale
+        logits = self.pred_head(x[:, 1, :])*self.scale
         return logits, framewise_feats, contextual_feats, self.scale
 
 
@@ -95,6 +98,8 @@ class OpticalFlowCueModel(nn.Module):
         )
         self.short_term_model.init_weights()
         self.pos_emb = nn.Parameter(torch.randn(1, frame_len//2, hidden_dim))
+        self.u_cls_emb = nn.Parameter(torch.randn(1, 1, hidden_dim))
+        self.m_cls_emb = nn.Parameter(torch.randn(1, 1, hidden_dim))
         encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_dim, nhead=8, batch_first=True)
         self.long_term_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
         self.pred_head = nn.Linear(hidden_dim, num_classes)
@@ -107,9 +112,10 @@ class OpticalFlowCueModel(nn.Module):
         x = x.mean(dim=2)
         framewise_feats = self.local_align_model(x.permute(0, 2, 1)).permute(0, 2, 1)
         x = x + self.pos_emb
+        x = torch.cat([self.m_cls_emb.repeat(x.shape[0], 1, 1), self.u_cls_emb.repeat(x.shape[0], 1, 1), x], dim=1)
         x = self.long_term_model(x)
         contextual_feats = x
-        logits = self.pred_head(x[:, 0, :])*self.scale
+        logits = self.pred_head(x[:, 1, :])*self.scale
         return logits, framewise_feats, contextual_feats, self.scale
 
 
@@ -134,6 +140,8 @@ class PoseCueModel(nn.Module):
             conv_type=3,
         )
         self.pos_emb = nn.Parameter(torch.randn(1, frame_len//2, hidden_dim))
+        self.u_cls_emb = nn.Parameter(torch.randn(1, 1, hidden_dim))
+        self.m_cls_emb = nn.Parameter(torch.randn(1, 1, hidden_dim))
         encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_dim, nhead=8, batch_first=True)
         self.long_term_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
         self.pred_head = nn.Linear(hidden_dim, num_classes)
@@ -144,9 +152,10 @@ class PoseCueModel(nn.Module):
         x = self.short_term_model(x.permute(0, 2, 1))
         framewise_feats = self.local_align_model(x).permute(0, 2, 1)
         x = x.permute(0, 2, 1) + self.pos_emb
+        x = torch.cat([self.m_cls_emb.repeat(x.shape[0], 1, 1), self.u_cls_emb.repeat(x.shape[0], 1, 1), x], dim=1)
         x = self.long_term_model(x)
         contextual_feats = x
-        logits = self.pred_head(x[:, 0, :])*self.scale
+        logits = self.pred_head(x[:, 1, :])*self.scale
         return logits, framewise_feats, contextual_feats, self.scale
 
 
