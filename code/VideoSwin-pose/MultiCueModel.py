@@ -49,18 +49,6 @@ class RGBCueModel(nn.Module):
         encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_dim, nhead=8, batch_first=True)
         self.long_term_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
         self.pred_head = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim, bias=False),
-            # nn.BatchNorm1d(hidden_dim),
-            nn.ReLU(inplace=True), 
-
-            nn.Linear(hidden_dim, hidden_dim, bias=False),
-            # nn.BatchNorm1d(hidden_dim),
-            nn.ReLU(inplace=True), 
-
-            nn.Linear(hidden_dim, hidden_dim, bias=False),
-            # nn.BatchNorm1d(hidden_dim),
-            nn.ReLU(inplace=True), 
-
             nn.Linear(hidden_dim, num_classes),
         )   
         self.scale = nn.Parameter(torch.ones(1))
@@ -112,18 +100,6 @@ class OpticalFlowCueModel(nn.Module):
         encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_dim, nhead=8, batch_first=True)
         self.long_term_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
         self.pred_head = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim, bias=False),
-            # nn.BatchNorm1d(hidden_dim),
-            nn.ReLU(inplace=True), 
-
-            nn.Linear(hidden_dim, hidden_dim, bias=False),
-            # nn.BatchNorm1d(hidden_dim),
-            nn.ReLU(inplace=True), 
-
-            nn.Linear(hidden_dim, hidden_dim, bias=False),
-            # nn.BatchNorm1d(hidden_dim),
-            nn.ReLU(inplace=True), 
-
             nn.Linear(hidden_dim, num_classes),
         )   
         self.scale = nn.Parameter(torch.ones(1))
@@ -166,18 +142,6 @@ class PoseCueModel(nn.Module):
         encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_dim, nhead=8, batch_first=True)
         self.long_term_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
         self.pred_head = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim, bias=False),
-            # nn.BatchNorm1d(hidden_dim),
-            nn.ReLU(inplace=True), 
-
-            nn.Linear(hidden_dim, hidden_dim, bias=False),
-            # nn.BatchNorm1d(hidden_dim),
-            nn.ReLU(inplace=True), 
-
-            nn.Linear(hidden_dim, hidden_dim, bias=False),
-            # nn.BatchNorm1d(hidden_dim),
-            nn.ReLU(inplace=True), 
-
             nn.Linear(hidden_dim, num_classes),
         )   
         self.scale = nn.Parameter(torch.ones(1))
