@@ -50,15 +50,15 @@ class RGBCueModel(nn.Module):
         self.long_term_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
         self.pred_head = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim, bias=False),
-            nn.BatchNorm1d(hidden_dim),
+            # nn.BatchNorm1d(hidden_dim),
             nn.ReLU(inplace=True), 
 
             nn.Linear(hidden_dim, hidden_dim, bias=False),
-            nn.BatchNorm1d(hidden_dim),
+            # nn.BatchNorm1d(hidden_dim),
             nn.ReLU(inplace=True), 
 
             nn.Linear(hidden_dim, hidden_dim, bias=False),
-            nn.BatchNorm1d(hidden_dim),
+            # nn.BatchNorm1d(hidden_dim),
             nn.ReLU(inplace=True), 
 
             nn.Linear(hidden_dim, num_classes),
@@ -113,15 +113,15 @@ class OpticalFlowCueModel(nn.Module):
         self.long_term_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
         self.pred_head = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim, bias=False),
-            nn.BatchNorm1d(hidden_dim),
+            # nn.BatchNorm1d(hidden_dim),
             nn.ReLU(inplace=True), 
 
             nn.Linear(hidden_dim, hidden_dim, bias=False),
-            nn.BatchNorm1d(hidden_dim),
+            # nn.BatchNorm1d(hidden_dim),
             nn.ReLU(inplace=True), 
 
             nn.Linear(hidden_dim, hidden_dim, bias=False),
-            nn.BatchNorm1d(hidden_dim),
+            # nn.BatchNorm1d(hidden_dim),
             nn.ReLU(inplace=True), 
 
             nn.Linear(hidden_dim, num_classes),
@@ -167,15 +167,15 @@ class PoseCueModel(nn.Module):
         self.long_term_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
         self.pred_head = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim, bias=False),
-            nn.BatchNorm1d(hidden_dim),
+            # nn.BatchNorm1d(hidden_dim),
             nn.ReLU(inplace=True), 
 
             nn.Linear(hidden_dim, hidden_dim, bias=False),
-            nn.BatchNorm1d(hidden_dim),
+            # nn.BatchNorm1d(hidden_dim),
             nn.ReLU(inplace=True), 
 
             nn.Linear(hidden_dim, hidden_dim, bias=False),
-            nn.BatchNorm1d(hidden_dim),
+            # nn.BatchNorm1d(hidden_dim),
             nn.ReLU(inplace=True), 
 
             nn.Linear(hidden_dim, num_classes),
@@ -255,15 +255,15 @@ class MultiCueModel(nn.Module):
         glo_dim = 768*len(cue)
         self.pred_head = nn.Sequential(
             nn.Linear(glo_dim, glo_dim, bias=False),
-            nn.BatchNorm1d(glo_dim),
+            # nn.BatchNorm1d(glo_dim),
             nn.ReLU(inplace=True), 
 
             nn.Linear(glo_dim, glo_dim, bias=False),
-            nn.BatchNorm1d(glo_dim),
+            # nn.BatchNorm1d(glo_dim),
             nn.ReLU(inplace=True), 
 
             nn.Linear(glo_dim, glo_dim, bias=False),
-            nn.BatchNorm1d(glo_dim),
+            # nn.BatchNorm1d(glo_dim),
             nn.ReLU(inplace=True), 
 
             nn.Linear(glo_dim, num_classes),
