@@ -28,7 +28,7 @@ from glob import glob
 import pytz
 # from datasets.nslt_dataset import NSLT as Dataset
 # from datasets.nslt_dataset import NSLT as Dataset
-from datasets.capg_csl_dataset_sample_sepa import CAPG_CSL as Dataset
+from datasets.capg_csl_dataset_sample_sepa_v2 import CAPG_CSL as Dataset
 import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -76,8 +76,8 @@ def run(configs,
                                              pin_memory=True)
     print('Train', len(dataset))
     view_list = ['camera_0', 'camera_1', 'camera_2', 'camera_3']
-    # phase_list = ['train']
-    phase_list = []
+    phase_list = ['train']
+    # phase_list = []
     val_dataset = {}
     val_dataloader = {}
     test_dataset = {}
@@ -103,7 +103,7 @@ def run(configs,
     cue = ['full_rgb', 'right_hand', 'left_hand', 'face', 'pose']
     # supervised_cue = cue + ['late_fusion', 'local_align/multimodal'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
     # supervised_cue = cue + ['local_align/multimodal'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
-    supervised_cue = cue + ['local_align/multimodal'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
+    supervised_cue = cue + ['late_fusion', 'local_align/multimodal'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
     model = MultiCueModel(cue, supervised_cue, num_classes, share_hand_model=False)
 
     if weights:
@@ -392,16 +392,13 @@ def train_(root, save_model, weights):
 
 if __name__ == '__main__':
 
-    exp_name = '1219-test-148'
+    exp_name = '1219-01-aursv2-112'
 
-
-    weights = 'logdir/train_liya/1217-148=125-wo-m-cls-112/nslt_51_0.980_0.995_00065.pt'
-    # weights = None
+    weights = None
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['liya'], 'test': ['maodonglai']}
     save_model = f'logdir/train_{root["train"][0]}/{exp_name}'
     train_(root, save_model,weights)
 
-    weights = 'logdir/train_maodonglai/1217-148=125-wo-m-cls-112/nslt_51_0.920_1.000_00052.pt'
     weights = None
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['maodonglai'], 'test': ['liya']}
     save_model = f'logdir/train_{root["train"][0]}/{exp_name}'
