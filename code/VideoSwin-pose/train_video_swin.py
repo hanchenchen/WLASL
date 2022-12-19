@@ -102,7 +102,7 @@ def run(configs,
     # cue = ['full_rgb', 'right_hand', 'left_hand', 'face', 'pose']
     cue = ['full_rgb', 'right_hand', 'left_hand', 'face', 'pose']
     # supervised_cue = cue + ['late_fusion', 'local_align/multimodal'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
-    supervised_cue = cue + ['local_align/multimodal'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
+    supervised_cue = cue + ['late_fusion', 'local_align/multimodal'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
     model = MultiCueModel(cue, supervised_cue, num_classes, share_hand_model=False)
 
     if weights:
@@ -374,7 +374,7 @@ def train_(root, save_model, weights):
     os.makedirs(save_model, exist_ok=False)
     train_split = 'preprocess/nslt_100.json'
 
-    config_file = 'configfiles/capg20.ini'
+    config_file = 'configfiles/capg50.ini'
 
     configs = Config(config_file)
     print(root, train_split)
@@ -391,7 +391,7 @@ def train_(root, save_model, weights):
 
 if __name__ == '__main__':
 
-    exp_name = '1219-06-wo-m-cls-05'
+    exp_name = '1219-07-lr=0.01-05'
 
     weights = None
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['liya'], 'test': ['maodonglai']}
