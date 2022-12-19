@@ -2,7 +2,7 @@ import os
 import argparse
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 device_ids = [0]
 import torch
 import torch.nn as nn
@@ -76,7 +76,8 @@ def run(configs,
                                              pin_memory=True)
     print('Train', len(dataset))
     view_list = ['camera_0', 'camera_1', 'camera_2', 'camera_3']
-    phase_list = ['train']
+    # phase_list = ['train']
+    phase_list = []
     val_dataset = {}
     val_dataloader = {}
     test_dataset = {}
@@ -102,12 +103,12 @@ def run(configs,
     cue = ['full_rgb', 'right_hand', 'left_hand', 'face', 'pose']
     # supervised_cue = cue + ['late_fusion', 'local_align/multimodal'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
     # supervised_cue = cue + ['local_align/multimodal'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
-    supervised_cue = ['local_align/multimodal'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
+    supervised_cue = cue + ['local_align/multimodal'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
     model = MultiCueModel(cue, supervised_cue, num_classes, share_hand_model=False)
 
     if weights:
         print('loading weights {}'.format(weights))
-        model.load_state_dict(torch.load(weights))
+        model.load_state_dict(torch.load(weights), strict=True)
 
     model = model.cuda()
     model = nn.DataParallel(model, device_ids=device_ids)
@@ -364,7 +365,7 @@ def run(configs,
             # **test_score_dict,
         })
 
-def train_(root, save_model):
+def train_(root, save_model, weights):
     # WLASL setting
     
     mode = 'rgb'
@@ -374,8 +375,6 @@ def train_(root, save_model):
     os.makedirs(save_model, exist_ok=False)
     train_split = 'preprocess/nslt_100.json'
 
-    # weights = 'checkpoints/nslt_100_004170_0.010638.pt'
-    weights = None
     config_file = 'configfiles/capg20.ini'
 
     configs = Config(config_file)
@@ -393,12 +392,17 @@ def train_(root, save_model):
 
 if __name__ == '__main__':
 
-    exp_name = '1217-149-wo-u-cls-148'
+    exp_name = '1219-test-148'
 
+
+    weights = 'logdir/train_liya/1217-148=125-wo-m-cls-112/nslt_51_0.980_0.995_00065.pt'
+    # weights = None
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['liya'], 'test': ['maodonglai']}
     save_model = f'logdir/train_{root["train"][0]}/{exp_name}'
-    train_(root, save_model)
+    train_(root, save_model,weights)
 
+    weights = 'logdir/train_maodonglai/1217-148=125-wo-m-cls-112/nslt_51_0.920_1.000_00052.pt'
+    weights = None
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['maodonglai'], 'test': ['liya']}
     save_model = f'logdir/train_{root["train"][0]}/{exp_name}'
-    train_(root, save_model)
+    train_(root, save_model,weights)
