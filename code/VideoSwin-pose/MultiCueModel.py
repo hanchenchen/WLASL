@@ -56,13 +56,13 @@ class RGBCueModel(nn.Module):
         x = self.short_term_model(x)
         x = rearrange(x, 'n d h w c -> n d (h w) c')
         x = x.mean(dim=2)                
-        framewise_feats = self.local_align_model(x.permute(0, 2, 1)).permute(0, 2, 1)
+        local_feats = self.local_align_model(x.permute(0, 2, 1)).permute(0, 2, 1)
+        framewise_feats = x
         x = x + self.pos_emb
         x = self.long_term_model(x)
         contextual_feats = x
         logits = self.pred_head(x[:, 0, :])*self.scale
-        return logits, framewise_feats, contextual_feats, self.scale
-
+        return logits, framewise_feats, local_feats, contextual_feats, self.scale
 
 class OpticalFlowCueModel(nn.Module):
     def __init__(
@@ -105,12 +105,13 @@ class OpticalFlowCueModel(nn.Module):
         x = self.short_term_model(x)
         x = rearrange(x, 'n d h w c -> n d (h w) c')
         x = x.mean(dim=2)
-        framewise_feats = self.local_align_model(x.permute(0, 2, 1)).permute(0, 2, 1)
+        local_feats = self.local_align_model(x.permute(0, 2, 1)).permute(0, 2, 1)
+        framewise_feats = x
         x = x + self.pos_emb
         x = self.long_term_model(x)
         contextual_feats = x
         logits = self.pred_head(x[:, 0, :])*self.scale
-        return logits, framewise_feats, contextual_feats, self.scale
+        return logits, framewise_feats, local_feats, contextual_feats, self.scale
 
 
 class PoseCueModel(nn.Module):
@@ -142,12 +143,13 @@ class PoseCueModel(nn.Module):
     def forward(self, x):
         x = self.proj(x)
         x = self.short_term_model(x.permute(0, 2, 1))
-        framewise_feats = self.local_align_model(x).permute(0, 2, 1)
+        local_feats = self.local_align_model(x).permute(0, 2, 1)
+        framewise_feats = x.permute(0, 2, 1)
         x = x.permute(0, 2, 1) + self.pos_emb
         x = self.long_term_model(x)
         contextual_feats = x
         logits = self.pred_head(x[:, 0, :])*self.scale
-        return logits, framewise_feats, contextual_feats, self.scale
+        return logits, framewise_feats, local_feats, contextual_feats, self.scale
 
 
 class MultiCueModel(nn.Module):
@@ -213,11 +215,11 @@ class MultiCueModel(nn.Module):
         self.pred_head = nn.Sequential(
             nn.Linear(glo_dim, 4096),
             nn.ReLU(inplace=True), 
-            # nn.Dropout(p=dropout),
+            nn.Dropout(p=dropout),
 
             nn.Linear(4096, 4096),
             nn.ReLU(inplace=True), 
-            # nn.Dropout(p=dropout),
+            nn.Dropout(p=dropout),
             nn.Linear(4096, num_classes),
         )
         self.scale = nn.Parameter(torch.ones(1))
@@ -226,10 +228,12 @@ class MultiCueModel(nn.Module):
 
         self.multimodal_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//4, 768))
         self.multimodal_seq_scale = nn.Parameter(torch.ones(1))
-        self.local_multimodal_proj = nn.Sequential(
-            nn.Linear(glo_dim, glo_dim),
-            nn.Linear(glo_dim, 768),
-        )   
+        
+        self.local_align_model = TemporalConv(
+            input_size=glo_dim,
+            hidden_size=768,
+            conv_type=3,
+        )
 
 
     def forward_cue(self, x, cue):
@@ -268,22 +272,24 @@ class MultiCueModel(nn.Module):
         local_multimodal_feats_list = []
         for key in self.cue:
             value = inputs[key]
-            logits, local_feats, contextual_feats, scale = self.forward_cue(value, key)
+            logits, frame_feats, local_feats, contextual_feats, scale = self.forward_cue(value, key)
             ret[key] = {
                 'logits': logits, 
+                'frame_feats': frame_feats,
                 'local_feats': local_feats,
                 'contextual_feats': contextual_feats,
                 'scale': scale,
                 }
             feats_list.append(contextual_feats[:, 0, :])
-            local_multimodal_feats_list.append(local_feats)
+            local_multimodal_feats_list.append(frame_feats)
             # if key in ['right_hand', 'left_hand', 'face']:
             #     crop_feats_list.append(contextual_feats)
      
-        feats = torch.cat(local_multimodal_feats_list, dim=-1)
-        feats = self.local_multimodal_proj(feats)
+        framewise_feats = torch.cat(local_multimodal_feats_list, dim=-1)
+        local_feats = self.local_align_model(framewise_feats.permute(0, 2, 1)).permute(0, 2, 1)
+
         ret['multimodal'] = {
-            'local_feats': feats,
+            'local_feats': local_feats,
             }
 
         feats = torch.cat(feats_list, dim=-1)
