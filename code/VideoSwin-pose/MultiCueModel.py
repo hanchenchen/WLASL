@@ -209,14 +209,15 @@ class MultiCueModel(nn.Module):
 
         
         glo_dim = 768*len(cue)
-        dropout = 0.5
+        dropout=0.5
         self.pred_head = nn.Sequential(
             nn.Linear(glo_dim, 4096),
-            nn.ReLU(True),
-            nn.Dropout(p=dropout),
+            nn.ReLU(inplace=True), 
+            # nn.Dropout(p=dropout),
+
             nn.Linear(4096, 4096),
-            nn.ReLU(True),
-            nn.Dropout(p=dropout),
+            nn.ReLU(inplace=True), 
+            # nn.Dropout(p=dropout),
             nn.Linear(4096, num_classes),
         )
         self.scale = nn.Parameter(torch.ones(1))
