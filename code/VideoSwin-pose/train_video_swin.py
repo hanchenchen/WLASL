@@ -77,7 +77,7 @@ def run(configs,
     print('Train', len(dataset))
     view_list = ['camera_0', 'camera_1', 'camera_2', 'camera_3']
     phase_list = ['train','train','train','train']
-    # phase_list = []
+    phase_list = []
     val_dataset = {}
     val_dataloader = {}
     test_dataset = {}
@@ -124,7 +124,7 @@ def run(configs,
     best_val_score_top5 = 0
     # train it
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=10, factor=0.1)
-    max_epoch = 20
+    max_epoch = 1
     configs.max_steps = max_epoch*len(dataset)*4//configs.batch_size
     scheduler = get_cosine_schedule_with_warmup(
                 optimizer,
@@ -439,14 +439,14 @@ def train_(root, save_model, weights):
 
 if __name__ == '__main__':
 
-    exp_name = '1220-15=10'
+    exp_name = '1220-16-test-112'
 
-    weights = None
+    weights = '/raid_han/islr_log_dir/train_liya/1209-112-cls=51-local_align_multimodal-110/nslt_51_0.980_0.995_00092.pt'
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['liya'], 'test': ['maodonglai']}
     save_model = f'logdir/train_{root["train"][0]}/{exp_name}'
     train_(root, save_model,weights)
 
-    weights = None
+    weights = '/raid_han/islr_log_dir/train_mao/1209-112-cls=51-local_align_multimodal-110/nslt_51_0.910_1.000_00073.pt'
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['maodonglai'], 'test': ['liya']}
     save_model = f'logdir/train_{root["train"][0]}/{exp_name}'
     train_(root, save_model,weights)
