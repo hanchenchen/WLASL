@@ -48,9 +48,7 @@ class RGBCueModel(nn.Module):
         self.pos_emb = nn.Parameter(torch.randn(1, frame_len//2, hidden_dim))
         encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_dim, nhead=8, batch_first=True)
         self.long_term_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
-        self.pred_head = nn.Sequential(
-            nn.Linear(hidden_dim, num_classes),
-        )   
+        self.pred_head = nn.Linear(hidden_dim, num_classes)
         self.scale = nn.Parameter(torch.ones(1))
 
     def forward(self, x):
@@ -99,9 +97,7 @@ class OpticalFlowCueModel(nn.Module):
         self.pos_emb = nn.Parameter(torch.randn(1, frame_len//2, hidden_dim))
         encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_dim, nhead=8, batch_first=True)
         self.long_term_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
-        self.pred_head = nn.Sequential(
-            nn.Linear(hidden_dim, num_classes),
-        )   
+        self.pred_head = nn.Linear(hidden_dim, num_classes)
         self.scale = nn.Parameter(torch.ones(1))
 
     def forward(self, x):
@@ -141,9 +137,7 @@ class PoseCueModel(nn.Module):
         self.pos_emb = nn.Parameter(torch.randn(1, frame_len//2, hidden_dim))
         encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_dim, nhead=8, batch_first=True)
         self.long_term_model = nn.TransformerEncoder(encoder_layer, num_layers=4)
-        self.pred_head = nn.Sequential(
-            nn.Linear(hidden_dim, num_classes),
-        )   
+        self.pred_head = nn.Linear(hidden_dim, num_classes)
         self.scale = nn.Parameter(torch.ones(1))
 
     def forward(self, x):
@@ -217,20 +211,16 @@ class MultiCueModel(nn.Module):
 
         
         glo_dim = 768*len(cue)
+        dropout=0.5
         self.pred_head = nn.Sequential(
-            nn.Linear(glo_dim, glo_dim, bias=False),
-            # nn.BatchNorm1d(glo_dim),
+            nn.Linear(glo_dim, 4096),
             nn.ReLU(inplace=True), 
+            # nn.Dropout(p=dropout),
 
-            nn.Linear(glo_dim, glo_dim, bias=False),
-            # nn.BatchNorm1d(glo_dim),
+            nn.Linear(4096, 4096),
             nn.ReLU(inplace=True), 
-
-            nn.Linear(glo_dim, glo_dim, bias=False),
-            # nn.BatchNorm1d(glo_dim),
-            nn.ReLU(inplace=True), 
-
-            nn.Linear(glo_dim, num_classes),
+            # nn.Dropout(p=dropout),
+            nn.Linear(4096, num_classes),
         )
         self.scale = nn.Parameter(torch.ones(1))
 

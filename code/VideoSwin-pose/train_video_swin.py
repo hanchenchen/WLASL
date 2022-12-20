@@ -2,7 +2,7 @@ import os
 import argparse
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+# os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 device_ids = [0]
 import torch
 import torch.nn as nn
@@ -28,7 +28,7 @@ from glob import glob
 import pytz
 # from datasets.nslt_dataset import NSLT as Dataset
 # from datasets.nslt_dataset import NSLT as Dataset
-from datasets.capg_csl_dataset_sample_sepa_v2 import CAPG_CSL as Dataset
+from datasets.capg_csl_dataset_sample_sepa_multi_view import CAPG_CSL as Dataset
 import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -76,7 +76,7 @@ def run(configs,
                                              pin_memory=True)
     print('Train', len(dataset))
     view_list = ['camera_0', 'camera_1', 'camera_2', 'camera_3']
-    phase_list = ['train']
+    phase_list = ['train','train','train','train']
     # phase_list = []
     val_dataset = {}
     val_dataloader = {}
@@ -121,10 +121,11 @@ def run(configs,
     epoch = 0
 
     best_val_score = 0
+    best_val_score_top5 = 0
     # train it
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=10, factor=0.1)
-    max_epoch = 100
-    configs.max_steps = max_epoch*len(dataset) # //configs.batch_size
+    max_epoch = 20
+    configs.max_steps = max_epoch*len(dataset)*4//configs.batch_size
     scheduler = get_cosine_schedule_with_warmup(
                 optimizer,
                 num_warmup_steps=0,
@@ -163,32 +164,64 @@ def run(configs,
                 # get the inputs
                 if data == -1: # bracewell does not compile opencv with ffmpeg, strange errors occur resulting in no video loaded
                     continue
+                if phase == 'train':
+                    full_rgb, labels, vid, pose, right_hand, left_hand, face = data
+                    labels = labels.to(model.module.device, non_blocking=True)
+                    inputs = {
+                        'full_rgb': full_rgb,
+                        'right_hand': right_hand,
+                        'left_hand': left_hand,
+                        'face': face,
+                        'pose': pose,
+                    }
+                    ret = model(inputs)
 
-                full_rgb, labels, vid, pose, right_hand, left_hand, face = data
-                labels = labels.to(model.module.device, non_blocking=True)
-                inputs = {
-                    'full_rgb': full_rgb,
-                    'right_hand': right_hand,
-                    'left_hand': left_hand,
-                    'face': face,
-                    'pose': pose,
-                }
-                ret = model(inputs)
+                    loss = 0.0
+                    scales = {}
+                    for key in supervised_cue:
+                        value = ret[key]
+                        scales[f"{phase}/Scale/"+key] = value['scale'][0].item()
+                        loss = loss + F.cross_entropy(value['logits'], labels)
+                        logits = value['logits']
+                        pred = torch.argmax(logits, dim=1)
+                        for i in range(logits.shape[0]):
+                            confusion_matrix_cue[key][labels[i].item(), pred[i].item()] += 1
+                else:   
+                    with torch.no_grad():
+                        full_rgb, labels, vid, pose, right_hand, left_hand, face = data
+                        assert full_rgb.shape[1] == 4
+                        ret_list = []
+                        labels = labels[:,0].to(model.module.device, non_blocking=True)
+                        for view in range(full_rgb.shape[1]):
+                            inputs = {
+                              'full_rgb': full_rgb[:,view,:],
+                                'right_hand': right_hand[:,view,:],
+                                'left_hand': left_hand[:,view,:],
+                                'face': face[:,view,:],
+                                'pose': pose[:,view,:],
+                            }
+                            ret = model(inputs)
+                            ret_list.append(ret)
+                        ret = {}
+                        for key in supervised_cue:
+                            ret[key] = {
+                                'logits': sum([i[key]['logits'] for i in ret_list])/float(len(ret_list)),
+                                'scale': sum([i[key]['scale'] for i in ret_list])/float(len(ret_list)),
+                            }
+                            
 
-                loss = 0.0
-                scales = {}
-                for key in supervised_cue:
-                    value = ret[key]
-                    scales[f"{phase}/Scale/"+key] = value['scale'][0].item()
-                    loss = loss + F.cross_entropy(value['logits'], labels)
-                    logits = value['logits']
-                    pred = torch.argmax(logits, dim=1)
-                    for i in range(logits.shape[0]):
-                        confusion_matrix_cue[key][labels[i].item(), pred[i].item()] += 1
-                # loss = loss + ret['mutual_distill_loss/framewise'] 
-                # loss = loss + ret['mutual_distill_loss/contextual'] 
-                # scales[f"{phase}/mutual_distill_loss/framewise"] = ret['mutual_distill_loss/framewise'].item()
-                # scales[f"{phase}/mutual_distill_loss/contextual"] = ret['mutual_distill_loss/contextual'].item()
+                        loss = 0.0
+                        scales = {}
+                        for key in supervised_cue:
+                            value = ret[key]
+                            scales[f"{phase}/Scale/"+key] = value['scale'][0].item()
+                            loss = loss + F.cross_entropy(value['logits'], labels)
+                            logits = value['logits']
+                            pred = torch.argmax(logits, dim=1)
+                            for i in range(logits.shape[0]):
+                                confusion_matrix_cue[key][labels[i].item(), pred[i].item()] += 1
+
+
                 logits = ret['local_glocal_fusion']['logits']
                 pred = torch.argmax(logits, dim=1)
                 sorted_logits, sorted_indices = torch.sort(logits, descending=True, dim=-1)
@@ -205,9 +238,9 @@ def run(configs,
                 tot_loss += loss.data.item()
                 if num_iter == num_steps_per_update // 2:
                     print(epoch, steps, loss.data.item())
-                loss.backward()
 
                 if num_iter == num_steps_per_update and phase == 'train':
+                    loss.backward()
                     steps += 1
                     num_iter = 0
                     optimizer.step()
@@ -222,15 +255,16 @@ def run(configs,
                         localtime = datetime.datetime.fromtimestamp(
                             int(time.time()), pytz.timezone("Asia/Shanghai")
                             ).strftime("%Y-%m-%d %H:%M:%S")
-                                 
-                        log = "[ " + localtime + " ] " + 'Epoch {} Step {} {} LR: {:.8f}  Tot Loss: {:.4f} Accu :{:.4f} {} {}'.format(epoch, steps,
+                        log1 = "[ " + localtime + " ] " + 'Epoch {} Step {} {} LR: {:.8f}  Tot Loss: {:.4f} Accu :{:.4f}'.format(epoch, steps,
                         phase,
                         optimizer.param_groups[0]["lr"],
                         tot_loss / 10,
-                        acc, 
+                        acc)      
+                        log = '{} {} {}'.format(
+                        log1, 
                         acc_cue,
                         scales)
-                        print(log)
+                        print(log1)
                         with open(save_model + 'acc_train.txt', "a") as f:
                             f.writelines(log)
                             f.writelines("\n")
@@ -272,13 +306,12 @@ def run(configs,
                 localtime = datetime.datetime.fromtimestamp(
                     int(time.time()), pytz.timezone("Asia/Shanghai")
                     ).strftime("%Y-%m-%d %H:%M:%S")
-                            
-                log = "[ " + localtime + " ] " + 'Epoch {} Step {} VALIDATION: {} LR: {:.8f} Tot Loss: {:.4f} Accu :{:.4f} {}'.format(epoch, steps, phase, optimizer.param_groups[0]["lr"],
+                log1 =  "[ " + localtime + " ] " + 'Epoch {} Step {} VALIDATION: {} LR: {:.8f} Tot Loss: {:.4f} Accu :{:.4f}'.format(epoch, steps, phase, optimizer.param_groups[0]["lr"],
                                                                                                               (tot_loss * num_steps_per_update) / num_iter,
                                                                                                               val_score,
-                                                                                                              acc_cue,
-                                                                                                              )
-                print(log)
+                                                                                                              )  
+                log = '{} {}'.format(log1,acc_cue)
+                print(log1)
                 with open(save_model + 'acc_val.txt', "a") as f:
                     f.writelines(log)
                     f.writelines("\n")
@@ -308,13 +341,13 @@ def run(configs,
                 localtime = datetime.datetime.fromtimestamp(
                     int(time.time()), pytz.timezone("Asia/Shanghai")
                     ).strftime("%Y-%m-%d %H:%M:%S")
-                            
-                log = "[ " + localtime + " ] " + 'Epoch {} Step {} TEST: {} LR: {:.8f} Tot Loss: {:.4f} Accu :{:.4f} {}'.format(epoch, steps, phase, optimizer.param_groups[0]["lr"],
+                log1  = "[ " + localtime + " ] " + 'Epoch {} Step {} TEST: {} LR: {:.8f} Tot Loss: {:.4f} Accu :{:.4f} '.format(epoch, steps, phase, optimizer.param_groups[0]["lr"],
                                                                                                               (tot_loss * num_steps_per_update) / num_iter,
                                                                                                               val_score,
-                                                                                                              acc_cue
+                                                                                                              
                                                                                                               )
-                print(log)
+                log = '{} {}'.format(log1, acc_cue)
+                print(log1)
                 with open(save_model + 'acc_val.txt', "a") as f:
                     f.writelines(log)
                     f.writelines("\n")
@@ -331,6 +364,21 @@ def run(configs,
         # avg_test_score = sum([v for k, v in test_score_dict.items() if 'camera_' in k]) / 4.0
 
         if avg_val_score > best_val_score:
+            best_val_score_top5 = avg_val_score_top5
+            best_val_score = avg_val_score
+            # model_name = f"{save_model}nslt_{str(num_classes)}_{avg_val_score:.3f}_{epoch:05}_{avg_test_score:.3f}.pt"
+            model_name = f"{save_model}nslt_{str(num_classes)}_{avg_val_score:.3f}_{avg_val_score_top5:.3f}_{epoch:05}.pt"
+            torch.save(model.module.state_dict(), model_name)
+            seq_model_list = glob(save_model + "nslt_*.pt")
+            seq_model_list = sorted(seq_model_list)
+            for path in seq_model_list[:-1]:
+                os.remove(path)
+                print('Remove:', path)
+            print(model_name)
+        # scheduler.step(val_score_dict['val_loss'] * num_steps_per_update / num_iter)
+
+        if avg_val_score == best_val_score and avg_val_score_top5 > best_val_score_top5:
+            best_val_score_top5 = avg_val_score_top5
             best_val_score = avg_val_score
             # model_name = f"{save_model}nslt_{str(num_classes)}_{avg_val_score:.3f}_{epoch:05}_{avg_test_score:.3f}.pt"
             model_name = f"{save_model}nslt_{str(num_classes)}_{avg_val_score:.3f}_{avg_val_score_top5:.3f}_{epoch:05}.pt"
@@ -391,7 +439,7 @@ def train_(root, save_model, weights):
 
 if __name__ == '__main__':
 
-    exp_name = '1219-09-unimodal-fc-proj-08'
+    exp_name = '1219-10-multi-view-09'
 
     weights = None
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['liya'], 'test': ['maodonglai']}
