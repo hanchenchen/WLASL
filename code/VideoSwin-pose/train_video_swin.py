@@ -439,14 +439,14 @@ def train_(root, save_model, weights):
 
 if __name__ == '__main__':
 
-    exp_name = '1220-16-test-112'
+    exp_name = '1220-17-test-115'
 
-    weights = '/raid_han/islr_log_dir/train_liya/1209-112-cls=51-local_align_multimodal-110/nslt_51_0.980_0.995_00092.pt'
+    weights = 'logdir/train_liya/1210-117-wo-m-align-112/nslt_51_0.975_0.995_00088.pt'
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['liya'], 'test': ['maodonglai']}
     save_model = f'logdir/train_{root["train"][0]}/{exp_name}'
     train_(root, save_model,weights)
 
-    weights = '/raid_han/islr_log_dir/train_mao/1209-112-cls=51-local_align_multimodal-110/nslt_51_0.910_1.000_00073.pt'
+    weights = '/raid_han/islr_log_dir/train_mao/1210-117-wo-m-align-112/nslt_51_0.905_1.000_00090.pt'
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['maodonglai'], 'test': ['liya']}
     save_model = f'logdir/train_{root["train"][0]}/{exp_name}'
     train_(root, save_model,weights)
