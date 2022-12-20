@@ -382,7 +382,7 @@ def run(configs,
             best_val_score = avg_val_score
             # model_name = f"{save_model}nslt_{str(num_classes)}_{avg_val_score:.3f}_{epoch:05}_{avg_test_score:.3f}.pt"
             model_name = f"{save_model}nslt_{str(num_classes)}_{avg_val_score:.3f}_{avg_val_score_top5:.3f}_{epoch:05}.pt"
-            torch.save(model.module.state_dict(), model_name)
+            # torch.save(model.module.state_dict(), model_name)
             seq_model_list = glob(save_model + "nslt_*.pt")
             seq_model_list = sorted(seq_model_list)
             for path in seq_model_list[:-1]:
@@ -439,14 +439,15 @@ def train_(root, save_model, weights):
 
 if __name__ == '__main__':
 
-    exp_name = '1220-17-test-115'
+    exp_name = '1220-18-test-112'
 
-    weights = 'logdir/train_liya/1210-117-wo-m-align-112/nslt_51_0.975_0.995_00088.pt'
+
+    weights = '/raid_han/islr_log_dir/train_liya/1209-112-cls=51-local_align_multimodal-110/nslt_51_0.980_0.995_00092.pt'
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['liya'], 'test': ['maodonglai']}
     save_model = f'logdir/train_{root["train"][0]}/{exp_name}'
     train_(root, save_model,weights)
 
-    weights = '/raid_han/islr_log_dir/train_mao/1210-117-wo-m-align-112/nslt_51_0.905_1.000_00090.pt'
+    weights = '/raid_han/islr_log_dir/train_mao/1209-112-cls=51-local_align_multimodal-110/nslt_51_0.910_1.000_00073.pt'
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['maodonglai'], 'test': ['liya']}
     save_model = f'logdir/train_{root["train"][0]}/{exp_name}'
     train_(root, save_model,weights)
