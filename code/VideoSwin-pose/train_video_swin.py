@@ -28,7 +28,7 @@ from glob import glob
 import pytz
 # from datasets.nslt_dataset import NSLT as Dataset
 # from datasets.nslt_dataset import NSLT as Dataset
-from datasets.capg_csl_dataset_sample_sepa_multi_view import CAPG_CSL as Dataset
+from datasets.capg_csl_dataset_sample_sepa_multi_view_1 import CAPG_CSL as Dataset
 import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -102,7 +102,7 @@ def run(configs,
     # cue = ['full_rgb', 'right_hand', 'left_hand', 'face', 'pose']
     cue = ['full_rgb', 'right_hand', 'left_hand', 'face', 'pose']
     # supervised_cue = cue + ['late_fusion', 'local_align/multimodal'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
-    supervised_cue = cue + ['local_align/multimodal'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
+    supervised_cue = cue + ['late_fusion', 'local_align/multimodal'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
     model = MultiCueModel(cue, supervised_cue, num_classes, share_hand_model=False)
 
     if weights:
@@ -439,7 +439,7 @@ def train_(root, save_model, weights):
 
 if __name__ == '__main__':
 
-    exp_name = '1219-11-wo-m-cls-10'
+    exp_name = '1219-12-wo-aursv3-10'
 
     weights = None
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['liya'], 'test': ['maodonglai']}
