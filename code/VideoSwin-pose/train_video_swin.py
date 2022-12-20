@@ -189,7 +189,7 @@ def run(configs,
                 else:   
                     with torch.no_grad():
                         full_rgb, labels, vid, pose, right_hand, left_hand, face = data
-                        assert full_rgb.shape[1] == 4
+                        assert full_rgb.shape[1] == 1
                         ret_list = []
                         labels = labels[:,0].to(model.module.device, non_blocking=True)
                         for view in range(full_rgb.shape[1]):
