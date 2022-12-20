@@ -102,7 +102,7 @@ def run(configs,
     # cue = ['full_rgb', 'right_hand', 'left_hand', 'face', 'pose']
     cue = ['full_rgb', 'right_hand', 'left_hand', 'face', 'pose']
     # supervised_cue = cue + ['late_fusion', 'local_align/multimodal'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
-    supervised_cue = cue + ['late_fusion'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
+    supervised_cue = cue + ['late_fusion', 'local_align/multimodal'] + [f'local_align/{i}' for i in cue] + ['local_glocal_fusion']
     model = MultiCueModel(cue, supervised_cue, num_classes, share_hand_model=False)
 
     if weights:
@@ -192,24 +192,24 @@ def run(configs,
                         assert full_rgb.shape[1] == 4
                         ret_list = []
                         labels = labels[:,0].to(model.module.device, non_blocking=True)
-                        for view in range(full_rgb.shape[1]):
-                            inputs = {
-                              'full_rgb': full_rgb[:,view,:],
-                                'right_hand': right_hand[:,view,:],
-                                'left_hand': left_hand[:,view,:],
-                                'face': face[:,view,:],
-                                'pose': pose[:,view,:],
+                        B, N, C, D, H, W = full_rgb.shape
+                        inputs = {
+                              'full_rgb': full_rgb.reshape(B*N, C, D, H, W),
+                                'right_hand': right_hand.reshape(B*N, C, D, H, W),
+                                'left_hand': left_hand.reshape(B*N, C, D, H, W),
+                                'face': face.reshape(B*N, C, D, H, W),
+                                'pose': pose.reshape(B*N, D, -1),
                             }
-                            ret = model(inputs)
-                            ret_list.append(ret)
+                        ret_list = model(inputs)
                         ret = {}
                         for key in supervised_cue:
+                            l = ret_list[key]['logits'].reshape(B, N, -1).mean(1)
+                            s = ret_list[key]['scale']
                             ret[key] = {
-                                'logits': sum([i[key]['logits'] for i in ret_list])/float(len(ret_list)),
-                                'scale': sum([i[key]['scale'] for i in ret_list])/float(len(ret_list)),
+                                'logits': l,
+                                'scale': s,
                             }
                             
-
                         loss = 0.0
                         scales = {}
                         for key in supervised_cue:
@@ -439,7 +439,7 @@ def train_(root, save_model, weights):
 
 if __name__ == '__main__':
 
-    exp_name = '1220-14-wo-m-align-10'
+    exp_name = '1220-15=10'
 
     weights = None
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['liya'], 'test': ['maodonglai']}
