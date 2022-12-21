@@ -28,7 +28,7 @@ from glob import glob
 import pytz
 # from datasets.nslt_dataset import NSLT as Dataset
 # from datasets.nslt_dataset import NSLT as Dataset
-from datasets.capg_csl_dataset_wo_sample_sepa import CAPG_CSL as Dataset
+from datasets.capg_csl_dataset_sample_sepa_wo_filter import CAPG_CSL as Dataset
 import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -393,7 +393,7 @@ def train_(root, save_model):
 
 if __name__ == '__main__':
 
-    exp_name = '1221-164-wo-SampleSeparate-148'
+    exp_name = '1221-165-wo-filter-148'
 
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['liya'], 'test': ['maodonglai']}
     save_model = f'logdir/train_{root["train"][0]}/{exp_name}'
