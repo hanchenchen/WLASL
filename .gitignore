@@ -16,3 +16,4 @@ code/I3D/archived/
 wandb/
 archived/
 *.log
+*-output
