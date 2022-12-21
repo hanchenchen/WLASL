@@ -229,8 +229,18 @@ class MultiCueModel(nn.Module):
         self.multimodal_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//4, 768))
         self.multimodal_seq_scale = nn.Parameter(torch.ones(1))
         
+        self.proj = nn.Sequential(
+            nn.Linear(glo_dim, 4096),
+            nn.ReLU(inplace=True), 
+            nn.Dropout(p=dropout),
+
+            nn.Linear(4096, 4096),
+            nn.ReLU(inplace=True), 
+            nn.Dropout(p=dropout),
+            nn.Linear(4096, 768),
+        )
         self.local_align_model = TemporalConv(
-            input_size=glo_dim,
+            input_size=768,
             hidden_size=768,
             conv_type=3,
         )
@@ -285,7 +295,7 @@ class MultiCueModel(nn.Module):
             # if key in ['right_hand', 'left_hand', 'face']:
             #     crop_feats_list.append(contextual_feats)
      
-        framewise_feats = torch.cat(local_multimodal_feats_list, dim=-1)
+        framewise_feats = self.proj(torch.cat(local_multimodal_feats_list, dim=-1))
         local_feats = self.local_align_model(framewise_feats.permute(0, 2, 1)).permute(0, 2, 1)
 
         ret['multimodal'] = {
