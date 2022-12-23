@@ -27,7 +27,7 @@ def video_to_tensor(pic):
 def pose_filtering(video_path):
 
     frame_paths = sorted(glob(f"{video_path}/*.jpg"))
-    
+    return frame_paths
     label, signer, record_time, view = video_path.split('/')[-4:]
     key = f"{label}/{signer}/{record_time}"
 
