@@ -71,7 +71,7 @@ def run(configs,
                                            videotransforms.RandomHorizontalFlip(), ])
     test_transforms = transforms.Compose([videotransforms.CenterCrop(224)])
 
-    dataset = Dataset('train', root, train_transforms, hand_transforms=test_transforms, num_classes=101)
+    dataset = Dataset('train', root, train_transforms, hand_transforms=test_transforms, num_classes=51)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=configs.batch_size, shuffle=True, num_workers=0,
                                              pin_memory=True)
     print('Train', len(dataset))
@@ -83,7 +83,7 @@ def run(configs,
     test_dataloader = {}
     for view in view_list:
         phase_list.append(f'val/{view}')
-        val_dataset[f'val/{view}'] = Dataset('test', root, test_transforms, view_list=[view], num_classes=101)
+        val_dataset[f'val/{view}'] = Dataset('test', root, test_transforms, view_list=[view], num_classes=51)
         val_dataloader[f'val/{view}'] = torch.utils.data.DataLoader(val_dataset[f'val/{view}'] , batch_size=configs.batch_size, shuffle=True, num_workers=2,pin_memory=False)
         print(f'val/{view}', len(val_dataset[f'val/{view}']))
     # for view in view_list:
@@ -392,7 +392,7 @@ def train_(root, save_model):
 
 if __name__ == '__main__':
 
-    exp_name = '1223-179-cls=100-163'
+    exp_name = '1221-163-wo-lf-148'
 
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['liya'], 'test': ['maodonglai']}
     save_model = f'logdir/train_{root["train"][0]}/{exp_name}'
