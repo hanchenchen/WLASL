@@ -2,7 +2,7 @@ import os
 import json
 import cv2
 
-filenames = set(os.listdir('/raid_han/sign-dataset/wlasl/videos'))
+filenames = sorted(set(os.listdir('/raid_han/sign-dataset/wlasl/videos')))
 
 content = json.load(open('WLASL_v0.3.json'))
 

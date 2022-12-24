@@ -19,11 +19,15 @@ for entry in content:
             missing_ids.append(video_id)
         else:
             video_path = os.path.join('/raid_han/sign-dataset/wlasl/videos', video_id + '.mp4')
-            print(video_path)
+            # print(video_path)
             videocap = cv2.VideoCapture(video_path)
             if not int(videocap.get(cv2.CAP_PROP_FRAME_COUNT)):
                 none_ids.append(video_id)
                 missing_ids.append(video_id)
+                os.remove(video_path)
+                print(video_path)
+            else:
+                
             videocap.release()
 print(total_video, len(filenames))
 

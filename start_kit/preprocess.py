@@ -74,10 +74,15 @@ def extract_all_yt_instances(content):
                 yt_identifier = url[-11:]
 
                 src_video_path = os.path.join('raw_videos_mp4', video_id + '.mp4')
+                if not os.path.exists(src_video_path):
+                    src_video_path = os.path.join('raw_videos_mp4', yt_identifier + '.mp4')
+                
                 dst_video_path = os.path.join('videos', video_id + '.mp4')
 
                 if not os.path.exists(src_video_path):
                     continue
+
+                # src_video_path = os.path.join('raw_videos_mp4', yt_identifier + '.mp4')
 
                 if os.path.exists(dst_video_path):
                     # print('{} exists.'.format(dst_video_path))
@@ -102,7 +107,7 @@ def extract_all_yt_instances(content):
                 
                 convert_frames_to_video(selected_frames, dst_video_path, size)
 
-                print(cnt, dst_video_path)
+                # print(cnt, dst_video_path)
             else:
                 cnt += 1
 
@@ -116,13 +121,13 @@ def extract_all_yt_instances(content):
                 if not os.path.exists(src_video_path):
                     continue
 
-                print(cnt, dst_video_path)
+                # print(cnt, dst_video_path)
                 shutil.copyfile(src_video_path, dst_video_path)
 
         
 def main():
     # 1. Convert .swf, .mkv file to mp4.
-    # convert_everything_to_mp4()
+    convert_everything_to_mp4()
 
     content = json.load(open('WLASL_v0.3.json'))
     extract_all_yt_instances(content)
