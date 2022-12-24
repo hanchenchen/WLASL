@@ -15,32 +15,37 @@ right_hand_dire = f"{root}/right-hand-224x224"
 
 length = 224
 # print(glob(f"{src_dire}/*/*.png"))
-for path in tqdm(glob(f"{src_dire}/*/*.png")):
+for path in tqdm(sorted(glob(f"{src_dire}/*/*.png"))):
     # if '.png' not in path:
     #     continue
-    img = cv2.imread(path)
-    w, h, c = img.shape
+
     # label, signer, record_time, view, img_name = path.split('/')[-5:]
     # key = f"{label}/{signer}/{record_time}"
+    vid = '/'.join(path.replace(src_dire, resized_dire).split('/')[:-1])
+    # if os.path.exists(vid):
+    # if os.path.exists(path.replace(src_dire, resized_dire)):
+    #     print(path.replace(src_dire, resized_dire))
+    #     continue
     if not os.path.exists(path.replace('images', 'images-pose').replace('.png', '_keypoints.json')):
         continue
     with open(path.replace('images', 'images-pose').replace('.png', '_keypoints.json'), 'r') as f:
         pose = json.load(f)['people']
-        if not pose:
-            continue
-        pose = pose[0]
-
+    if not pose:
+        continue
+    pose = pose[0]
+    img = cv2.imread(path)
+    w, h, c = img.shape
     resized_img = img
     if w > 480 or h > 480:
         scale = max(w, h)
         resized_img = cv2.resize(resized_img, dsize=(int(h/scale*480), int(w/scale*480)))
-    print(img.shape, resized_img.shape)
+    # print(img.shape, resized_img.shape)
     
     os.makedirs(os.path.dirname(path.replace(src_dire, resized_dire)), exist_ok=True)
     cv2.imwrite(path.replace(src_dire, resized_dire), resized_img)
     # cv2.imwrite('resized_dire.jpg', resized_img)
 
-    print(path.replace('images', 'images-pose').replace('.png', '_keypoints.json'))
+    # print(path.replace('images', 'images-pose').replace('.png', '_keypoints.json'))
 
     shoudler = abs(pose['pose_keypoints_2d'][2*3] - pose['pose_keypoints_2d'][5*3])
     pose_keypoints_2d = torch.tensor(pose['pose_keypoints_2d'])
