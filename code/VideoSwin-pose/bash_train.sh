@@ -1,4 +1,4 @@
-CUDA_VISIBLE_DEVICES=3 nohup python train_I3D.py > logdir/logs/1225-193-avoid-random-sampling-when-test-192-output 2>&1 &  \
+CUDA_VISIBLE_DEVICES=1 nohup python train_I3D.py > logdir/logs/1225-194-frame=64-193-output 2>&1 &  \
 # --load-weights "work-dir/dist-gpu=2xbs=1-train/1009-21-wo-SimsiamAlign-18 18.9/dev_0.18900_epoch38_model.pt" & \
 # --phase test  & \
 # --work-dir work-dir/test/22-backward_hook-21-dist-bs=2-gpu=1-02/
