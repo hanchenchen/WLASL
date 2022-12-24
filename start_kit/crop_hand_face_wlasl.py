@@ -23,15 +23,19 @@ for path in tqdm(sorted(glob(f"{src_dire}/*/*.png"))):
     # key = f"{label}/{signer}/{record_time}"
     vid = '/'.join(path.replace(src_dire, resized_dire).split('/')[:-1])
     # if os.path.exists(vid):
-    # if os.path.exists(path.replace(src_dire, resized_dire)):
-    #     print(path.replace(src_dire, resized_dire))
-    #     continue
+    if (os.path.exists(path.replace(src_dire, resized_dire)) 
+    and os.path.exists(path.replace(src_dire, face_dire))
+    and os.path.exists(path.replace(src_dire, left_hand_dire))
+    and os.path.exists(path.replace(src_dire, right_hand_dire))):
+        # print(path.replace(src_dire, resized_dire))
+        continue
     if not os.path.exists(path.replace('images', 'images-pose').replace('.png', '_keypoints.json')):
         continue
     with open(path.replace('images', 'images-pose').replace('.png', '_keypoints.json'), 'r') as f:
         pose = json.load(f)['people']
     if not pose:
         continue
+
     pose = pose[0]
     img = cv2.imread(path)
     w, h, c = img.shape
@@ -54,16 +58,22 @@ for path in tqdm(sorted(glob(f"{src_dire}/*/*.png"))):
     hand_right_keypoints_2d = torch.tensor(pose['hand_right_keypoints_2d'])
     l = int(max(torch.max(face_keypoints_2d[:, 0]) - torch.min(face_keypoints_2d[:, 0]), 
     torch.max(face_keypoints_2d[:, 1]) - torch.min(face_keypoints_2d[:, 1]))*1.5)
-    
-    
+
+    if l<=0:
+        l = int(max(pose['pose_keypoints_2d'][2*3] - pose['pose_keypoints_2d'][5*3],
+        pose['pose_keypoints_2d'][2*3+1] - pose['pose_keypoints_2d'][5*3+1]))
+    # print(l)
+    if l <=0:
+        continue
     face_center_x = min(max(pose_keypoints_2d[0], l//2), h - l//2)
     face_center_y = min(max(pose_keypoints_2d[1], l//2), w - l//2)
     face_img = img[int(face_center_y)-l//2:int(face_center_y)+l//2, int(face_center_x)-l//2:int(face_center_x)+l//2]
+
     if face_img is not None:
         os.makedirs(os.path.dirname(path.replace(src_dire, face_dire)), exist_ok=True)
         face_img = cv2.resize(face_img, dsize=(length, length))
+        cv2.imwrite('face_img.jpg', face_img)
         cv2.imwrite(path.replace(src_dire, face_dire), face_img)
-        # cv2.imwrite('face_img.jpg', face_img)
 
     left_center_x = min(max(hand_left_keypoints_2d[9*3], l//2), h - l//2)
     left_center_y = min(max(hand_left_keypoints_2d[9*3+1], l//2), w - l//2)
