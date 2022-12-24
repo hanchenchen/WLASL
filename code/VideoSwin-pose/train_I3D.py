@@ -378,7 +378,7 @@ def train_(root, save_model):
 
     # weights = 'checkpoints/nslt_100_004170_0.010638.pt'
     weights = None
-    config_file = 'configfiles/capg20.ini'
+    config_file = '../I3D/configfiles/asl100.ini'
 
     configs = Config(config_file)
     print(root, train_split)
@@ -395,7 +395,7 @@ def train_(root, save_model):
 
 if __name__ == '__main__':
 
-    exp_name = '1223-191-2-loss-189-i3d-cls=100'
+    exp_name = '1223-192-asl100-ini-191'
 
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['liya'], 'test': ['maodonglai']}
     save_model = f'logdir/train_{root["train"][0]}/{exp_name}'
