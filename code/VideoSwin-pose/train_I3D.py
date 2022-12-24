@@ -167,22 +167,31 @@ def run(configs,
                     continue
 
                 full_rgb, labels, vid = data
+                batch, channel, t, h, w = full_rgb.shape
                 inputs = full_rgb.to(model.module.device, non_blocking=True)
                 labels = labels.to(model.module.device, non_blocking=True)
-                per_frame_logits = model(inputs, pretrained=False).mean(-1)
+                per_frame_logits = model(inputs, pretrained=False)
+# upsample to input size
+                per_frame_logits = F.upsample(per_frame_logits, t, mode='linear')
 
                 # compute localization loss
-                # print(inputs.shape, per_frame_logits.shape, labels.shape)
-                loc_loss = F.cross_entropy(per_frame_logits, labels)
+                target = torch.zeros(batch, num_classes, t).to(model.module.device, non_blocking=True)
+                for b_i in range(batch):
+                    target[b_i, labels[b_i], :] = 1
+                loc_loss = F.binary_cross_entropy_with_logits(per_frame_logits, target)
+                tot_loc_loss += loc_loss.data.item()
 
-                loss = loc_loss
+                predictions = torch.max(per_frame_logits, dim=2)[0]
+
+                # compute classification loss (with max-pooling along time B x C x T)
+                cls_loss = F.binary_cross_entropy_with_logits(torch.max(per_frame_logits, dim=2)[0],
+                                                              torch.max(target, dim=2)[0])
+                tot_cls_loss += cls_loss.data.item()
+
+
                 scales = {}
 
-                # loss = loss + ret['mutual_distill_loss/framewise'] 
-                # loss = loss + ret['mutual_distill_loss/contextual'] 
-                # scales[f"{phase}/mutual_distill_loss/framewise"] = ret['mutual_distill_loss/framewise'].item()
-                # scales[f"{phase}/mutual_distill_loss/contextual"] = ret['mutual_distill_loss/contextual'].item()
-                logits = per_frame_logits
+                logits = predictions
                 pred = torch.argmax(logits, dim=1)
                 sorted_logits, sorted_indices = torch.sort(logits, descending=True, dim=-1)
                 for i in range(logits.shape[0]):
@@ -194,7 +203,7 @@ def run(configs,
 
                     confusion_matrix_float[labels[i].item()] += logits[i].detach().cpu().numpy()
 
-                loss = loss / num_steps_per_update
+                loss = (0.5 * loc_loss + 0.5 * cls_loss) / num_steps_per_update
                 tot_loss += loss.data.item()
                 if num_iter == num_steps_per_update // 2:
                     print(epoch, steps, loss.data.item())
@@ -386,7 +395,7 @@ def train_(root, save_model):
 
 if __name__ == '__main__':
 
-    exp_name = '1223-189-i3d-cls=100'
+    exp_name = '1223-191-2-loss-189-i3d-cls=100'
 
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-20', '/raid_han/signDataProcess/capg-csl-dataset/capg-csl-21-100'], 'train': ['liya'], 'test': ['maodonglai']}
     save_model = f'logdir/train_{root["train"][0]}/{exp_name}'
