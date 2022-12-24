@@ -387,7 +387,7 @@ def train_(root, save_model):
 
 if __name__ == '__main__':
 
-    exp_name = '1224-190-wlasl-188'
+    exp_name = '1224-192=190'
 
     root = {'word': '/raid_han/sign-dataset/wlasl/images'}
     save_model = f'logdir/wlasl/{exp_name}'
