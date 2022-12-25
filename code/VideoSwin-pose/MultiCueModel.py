@@ -163,7 +163,7 @@ class MultiCueModel(nn.Module):
         self.supervised_cue = supervised_cue
         self.num_classes = num_classes
         self.device = torch.device("cuda")
-        frame_len = 32
+        frame_len = 16
         if 'full_rgb' in cue: 
             self.full_rgb_model = RGBCueModel(
                 num_classes=num_classes,
