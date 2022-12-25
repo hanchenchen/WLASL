@@ -478,7 +478,7 @@ class CAPG_CSL(data_utl.Dataset):
         self.transforms = transforms
         self.root = root
         self.split = split
-        self.total_frames = 64
+        self.total_frames = 32
         self.sample_frame = SampleFrames(clip_len=1, num_clips=self.total_frames, test_mode=split!='train')
         self.img_norm = T.Normalize(
             mean=[0.485, 0.456, 0.406],
