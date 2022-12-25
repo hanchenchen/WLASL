@@ -373,6 +373,7 @@ def train_(root, save_model):
     config_file = 'configfiles/capg20.ini'
 
     configs = Config(config_file)
+    configs.init_lr = 0.001
     print(root, train_split)
     wandb.init(
         name=save_model,
@@ -387,7 +388,7 @@ def train_(root, save_model):
 
 if __name__ == '__main__':
 
-    exp_name = '1224-192=190'
+    exp_name = '1225-196-lr=0.001-192=190'
 
     root = {'word': '/raid_han/sign-dataset/wlasl/images'}
     save_model = f'logdir/wlasl/{exp_name}'
