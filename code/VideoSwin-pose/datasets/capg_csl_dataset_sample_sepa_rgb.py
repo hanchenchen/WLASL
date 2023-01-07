@@ -122,7 +122,8 @@ def load_rgb_frames(frame_paths, sampler, img_norm, img_index_map, index_view_im
             img = cv2.resize(img, dsize=(0, 0), fx=sc, fy=sc)
 
         if 1: # downsample
-            img = cv2.resize(img, dsize=(56, 56))
+            img = cv2.resize(img, dsize=(128, 128))
+            print('downsample', 128, end = '')
         if 1: # upsample
             img = cv2.resize(img, dsize=(w, h))
             

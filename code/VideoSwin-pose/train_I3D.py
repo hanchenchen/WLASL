@@ -395,7 +395,7 @@ def train_(root, save_model):
 
 if __name__ == '__main__':
 
-    exp_name = '0107-200-downsample-56-upsample-196'
+    exp_name = '0107-201-downsample-128-upsample-199'
 
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-100'], 'train': ['liya'], 'test': ['maodonglai']}
     save_model = f'logdir/train_{root["train"][0]}/{exp_name}'
