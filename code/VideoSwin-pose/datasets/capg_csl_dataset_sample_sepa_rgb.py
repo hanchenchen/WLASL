@@ -115,10 +115,17 @@ def load_rgb_frames(frame_paths, sampler, img_norm, img_index_map, index_view_im
     for frames_idx in frames_indexes:
         img = cv2.imread(frame_paths[frames_idx])[:, :, [2, 1, 0]]
         w, h, c = img.shape
+                
         if w < 226 or h < 226:
             d = 226. - min(w, h)
             sc = 1 + d / min(w, h)
             img = cv2.resize(img, dsize=(0, 0), fx=sc, fy=sc)
+
+        if 1: # downsample
+            img = cv2.resize(img, dsize=(56, 56))
+        if 1: # upsample
+            img = cv2.resize(img, dsize=(w, h))
+            
         img = (img / 255.) * 2 - 1
         frames.append(np.asarray(img, dtype=np.float32))
 
