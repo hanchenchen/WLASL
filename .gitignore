@@ -17,3 +17,4 @@ wandb/
 archived/
 *.log
 *-output
+start_kit/nohup.out

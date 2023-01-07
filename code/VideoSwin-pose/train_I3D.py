@@ -397,9 +397,9 @@ if __name__ == '__main__':
 
     exp_name = '1225-199-train*1-196-240x240-195'
 
-    root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-100'], 'train': ['liya'], 'test': ['maodonglai']}
-    save_model = f'logdir/train_{root["train"][0]}/{exp_name}'
-    train_(root, save_model)
+    # root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-100'], 'train': ['liya'], 'test': ['maodonglai']}
+    # save_model = f'logdir/train_{root["train"][0]}/{exp_name}'
+    # train_(root, save_model)
 
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-100'], 'train': ['maodonglai'], 'test': ['liya']}
     save_model = f'logdir/train_{root["train"][0]}/{exp_name}'
