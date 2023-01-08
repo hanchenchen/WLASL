@@ -110,10 +110,10 @@ def load_rgb_frames(frame_paths, sampler, img_norm, img_index_map, index_view_im
     face = []
     poses = []
     frames_indexes = list(sampler({'start_index': 0, 'total_frames': len(frame_paths)})['frame_inds'])
-    right_hand_indexes = list(sampler({'start_index': 1, 'total_frames': len(frame_paths)})['frame_inds'])
-    left_hand_indexes = list(sampler({'start_index': 2, 'total_frames': len(frame_paths)})['frame_inds'])
-    face_indexes = list(sampler({'start_index': 3, 'total_frames': len(frame_paths)})['frame_inds'])
-    poses_indexes = list(sampler({'start_index': 4, 'total_frames': len(frame_paths)})['frame_inds'])
+    right_hand_indexes = list(sampler({'start_index': 1, 'total_frames': len(frame_paths)-1})['frame_inds'])
+    left_hand_indexes = list(sampler({'start_index': 2, 'total_frames': len(frame_paths)-2})['frame_inds'])
+    face_indexes = list(sampler({'start_index': 3, 'total_frames': len(frame_paths)-3})['frame_inds'])
+    poses_indexes = list(sampler({'start_index': 4, 'total_frames': len(frame_paths)-4})['frame_inds'])
     label, signer, record_time, view, img_name = frame_paths[0].split('/')[-5:]
 
     for frames_idx, right_hand_idx, left_hand_idx, face_idx, poses_idx in zip(frames_indexes, right_hand_indexes, left_hand_indexes, face_indexes, poses_indexes):
@@ -508,7 +508,7 @@ class CAPG_CSL(data_utl.Dataset):
         self.root = root
         self.split = split
         self.total_frames = 32
-        self.sample_frame = SampleFrames(clip_len=1, num_clips=self.total_frames, test_mode=False)
+        self.sample_frame = SampleFrames(clip_len=1, num_clips=self.total_frames, test_mode=split!='train')
         self.img_norm = T.Normalize(
             mean=[0.485, 0.456, 0.406],
             std=[0.229, 0.224, 0.225],
