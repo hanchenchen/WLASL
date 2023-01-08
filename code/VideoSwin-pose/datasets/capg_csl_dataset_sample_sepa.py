@@ -110,10 +110,10 @@ def load_rgb_frames(frame_paths, sampler, img_norm, img_index_map, index_view_im
     face = []
     poses = []
     frames_indexes = list(sampler({'start_index': 0, 'total_frames': len(frame_paths)})['frame_inds'])
-    right_hand_indexes = list(sampler({'start_index': 0, 'total_frames': len(frame_paths)})['frame_inds'])
-    left_hand_indexes = list(sampler({'start_index': 0, 'total_frames': len(frame_paths)})['frame_inds'])
-    face_indexes = list(sampler({'start_index': 0, 'total_frames': len(frame_paths)})['frame_inds'])
-    poses_indexes = list(sampler({'start_index': 0, 'total_frames': len(frame_paths)})['frame_inds'])
+    right_hand_indexes = list(sampler({'start_index': 1, 'total_frames': len(frame_paths)})['frame_inds'])
+    left_hand_indexes = list(sampler({'start_index': 2, 'total_frames': len(frame_paths)})['frame_inds'])
+    face_indexes = list(sampler({'start_index': 3, 'total_frames': len(frame_paths)})['frame_inds'])
+    poses_indexes = list(sampler({'start_index': 4, 'total_frames': len(frame_paths)})['frame_inds'])
     label, signer, record_time, view, img_name = frame_paths[0].split('/')[-5:]
 
     for frames_idx, right_hand_idx, left_hand_idx, face_idx, poses_idx in zip(frames_indexes, right_hand_indexes, left_hand_indexes, face_indexes, poses_indexes):
