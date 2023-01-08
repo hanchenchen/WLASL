@@ -121,11 +121,11 @@ def load_rgb_frames(frame_paths, sampler, img_norm, img_index_map, index_view_im
             sc = 1 + d / min(w, h)
             img = cv2.resize(img, dsize=(0, 0), fx=sc, fy=sc)
 
-        if 1: # downsample
+        if 0: # downsample
             img = cv2.resize(img, dsize=(184, 184))
             # print('downsample', 184, end = '')
         if 1: # upsample
-            img = cv2.resize(img, dsize=(w, h))
+            img = cv2.resize(img, dsize=(w*2, h*2))
             
         img = (img / 255.) * 2 - 1
         frames.append(np.asarray(img, dtype=np.float32))
