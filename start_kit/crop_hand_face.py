@@ -8,13 +8,13 @@ import torch
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 root = "/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-100"
 src_dire = f"{root}/rgb-1920x1280"
-resized_dire = f"{root}/rgb-640x640"
+resized_dire = f"{root}/rgb-1280x1280"
 face_dire = f"{root}/face-224x224"
 left_hand_dire = f"{root}/left-hand-224x224"
 right_hand_dire = f"{root}/right-hand-224x224"
 
 length = 224
-resized_length = 640
+resized_length = 1280
 
 for path in tqdm(glob(f"{src_dire}/*/*/*/*/*.jpg")):
     if '.jpg' not in path:
@@ -27,7 +27,7 @@ for path in tqdm(glob(f"{src_dire}/*/*/*/*/*.jpg")):
     pose = json.load(open(path.replace('rgb-1920x1280', 'openpose-res').replace('.jpg', '_keypoints.json'), 'r'))['people'][0]
 
     # img = cv2.cvtColor(img, cv2.COLOR_BayerRG2RGB)
-    scale = 2
+    scale = 1
     resized_img = cv2.resize(img, dsize=(1920//scale, 1280//scale))
     body_center_0 = int(pose['pose_keypoints_2d'][1*2 + 1])//scale
     if body_center_0 + resized_length//2 > 1920//scale:
