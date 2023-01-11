@@ -42,7 +42,7 @@ class RGBCueModel(nn.Module):
         self.local_align_model = TemporalConv(
             input_size=hidden_dim,
             hidden_size=hidden_dim,
-            conv_type=4,
+            conv_type=5,
         )
         self.short_term_model.init_weights('checkpoints/swin/swin_tiny_patch244_window877_kinetics400_1k.pth')
         self.pos_emb = nn.Parameter(torch.randn(1, frame_len//2, hidden_dim))
@@ -91,7 +91,7 @@ class OpticalFlowCueModel(nn.Module):
         self.local_align_model = TemporalConv(
             input_size=hidden_dim,
             hidden_size=hidden_dim,
-            conv_type=4,
+            conv_type=5,
         )
         self.short_term_model.init_weights()
         self.pos_emb = nn.Parameter(torch.randn(1, frame_len//2, hidden_dim))
@@ -131,7 +131,7 @@ class PoseCueModel(nn.Module):
         self.local_align_model = TemporalConv(
             input_size=hidden_dim,
             hidden_size=hidden_dim,
-            conv_type=4,
+            conv_type=5,
         )
         self.pos_emb = nn.Parameter(torch.randn(1, frame_len//2, hidden_dim))
         encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_dim, nhead=8, batch_first=True)
@@ -169,7 +169,7 @@ class MultiCueModel(nn.Module):
                 num_classes=num_classes,
                 hidden_dim=768,
                 frame_len=frame_len,)
-            self.full_rgb_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//4, 768))
+            self.full_rgb_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//8, 768))
             self.full_rgb_seq_scale = nn.Parameter(torch.ones(1))
 
         if 'right_hand' in cue: 
@@ -177,7 +177,7 @@ class MultiCueModel(nn.Module):
                 num_classes=num_classes,
                 hidden_dim=768,
                 frame_len=frame_len,)
-            self.right_hand_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//4, 768))
+            self.right_hand_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//8, 768))
             self.right_hand_seq_scale = nn.Parameter(torch.ones(1))
 
         if 'left_hand' in cue: 
@@ -185,7 +185,7 @@ class MultiCueModel(nn.Module):
                 num_classes=num_classes,
                 hidden_dim=768,
                 frame_len=frame_len,)
-            self.left_hand_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//4, 768))
+            self.left_hand_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//8, 768))
             self.left_hand_seq_scale = nn.Parameter(torch.ones(1))
 
         if share_hand_model:
@@ -196,7 +196,7 @@ class MultiCueModel(nn.Module):
                 num_classes=num_classes,
                 hidden_dim=768,
                 frame_len=frame_len,)
-            self.face_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//4, 768))
+            self.face_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//8, 768))
             self.face_seq_scale = nn.Parameter(torch.ones(1))
 
         if 'pose' in cue: 
@@ -204,7 +204,7 @@ class MultiCueModel(nn.Module):
                 num_classes=num_classes,
                 hidden_dim=768,
                 frame_len=frame_len,)
-            self.pose_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//4, 768))
+            self.pose_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//8, 768))
             self.pose_seq_scale = nn.Parameter(torch.ones(1))
 
         
@@ -217,7 +217,7 @@ class MultiCueModel(nn.Module):
 
         self.local_glocal_scale = nn.Parameter(torch.ones(1))  
 
-        self.multimodal_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//4, 768))
+        self.multimodal_seq = nn.Parameter(torch.randn(1, num_classes, frame_len//8, 768))
         self.multimodal_seq_scale = nn.Parameter(torch.ones(1))
         self.local_multimodal_proj = nn.Sequential(
             nn.Linear(glo_dim, glo_dim),
