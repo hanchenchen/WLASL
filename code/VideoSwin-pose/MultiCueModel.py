@@ -42,7 +42,7 @@ class RGBCueModel(nn.Module):
         self.local_align_model = TemporalConv(
             input_size=hidden_dim,
             hidden_size=hidden_dim,
-            conv_type=5,
+            conv_type=6,
         )
         self.short_term_model.init_weights('checkpoints/swin/swin_tiny_patch244_window877_kinetics400_1k.pth')
         self.pos_emb = nn.Parameter(torch.randn(1, frame_len//2, hidden_dim))
@@ -91,7 +91,7 @@ class OpticalFlowCueModel(nn.Module):
         self.local_align_model = TemporalConv(
             input_size=hidden_dim,
             hidden_size=hidden_dim,
-            conv_type=5,
+            conv_type=6,
         )
         self.short_term_model.init_weights()
         self.pos_emb = nn.Parameter(torch.randn(1, frame_len//2, hidden_dim))
@@ -131,7 +131,7 @@ class PoseCueModel(nn.Module):
         self.local_align_model = TemporalConv(
             input_size=hidden_dim,
             hidden_size=hidden_dim,
-            conv_type=5,
+            conv_type=6,
         )
         self.pos_emb = nn.Parameter(torch.randn(1, frame_len//2, hidden_dim))
         encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_dim, nhead=8, batch_first=True)
