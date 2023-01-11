@@ -22,6 +22,12 @@ class TemporalConv(nn.Module):
             self.kernel_size = ["K5", "P2", "K5", "P2"]
         elif self.conv_type == 3:
             self.kernel_size = ["K5", "P2", "K5"]
+        elif self.conv_type == 4:
+            self.kernel_size = ["K3", "P2", "K3"]
+        elif self.conv_type == 5:
+            self.kernel_size = ["K5", "P2", "K5", "P2"]
+        elif self.conv_type == 6:
+            self.kernel_size = ["K3", "P2", "K3", "P2"]
         print(self.kernel_size)
 
         modules = []
