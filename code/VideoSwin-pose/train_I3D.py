@@ -68,9 +68,9 @@ def run(configs,
     print(configs)
 
     # setup dataset
-    train_transforms = transforms.Compose([videotransforms.RandomCrop(600),
+    train_transforms = transforms.Compose([videotransforms.RandomCrop(1200),
                                            videotransforms.RandomHorizontalFlip(), ])
-    test_transforms = transforms.Compose([videotransforms.CenterCrop(600)])
+    test_transforms = transforms.Compose([videotransforms.CenterCrop(1200)])
 
     dataset = Dataset('train', root, train_transforms, hand_transforms=test_transforms, num_classes=num_classes)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=configs.batch_size, shuffle=True, num_workers=0,
@@ -379,7 +379,7 @@ def train_(root, save_model):
 
     # weights = 'checkpoints/nslt_100_004170_0.010638.pt'
     weights = None
-    config_file = '../I3D/configfiles/asl100.ini'
+    config_file = 'configfiles/icsl100-i3d-640x640.ini'
 
     configs = Config(config_file)
     print(root, train_split)
@@ -396,7 +396,7 @@ def train_(root, save_model):
 
 if __name__ == '__main__':
 
-    exp_name = '0111-212-640x640-196'
+    exp_name = '0112-213-1280x1280-196'
 
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-100'], 'train': ['liya'], 'test': ['maodonglai']}
     save_model = f'logdir/train_{root["train"][0]}/{exp_name}'
