@@ -68,9 +68,9 @@ def run(configs,
     print(configs)
 
     # setup dataset
-    train_transforms = transforms.Compose([videotransforms.RandomCrop(448),
+    train_transforms = transforms.Compose([videotransforms.RandomCrop(600),
                                            videotransforms.RandomHorizontalFlip(), ])
-    test_transforms = transforms.Compose([videotransforms.CenterCrop(448)])
+    test_transforms = transforms.Compose([videotransforms.CenterCrop(600)])
 
     dataset = Dataset('train', root, train_transforms, hand_transforms=test_transforms, num_classes=num_classes)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=configs.batch_size, shuffle=True, num_workers=0,
@@ -171,6 +171,7 @@ def run(configs,
                 inputs = full_rgb.to(model.module.device, non_blocking=True)
                 labels = labels.to(model.module.device, non_blocking=True)
                 per_frame_logits = model(inputs, pretrained=False)
+
 # upsample to input size
                 per_frame_logits = F.upsample(per_frame_logits, t, mode='linear')
 
@@ -395,7 +396,7 @@ def train_(root, save_model):
 
 if __name__ == '__main__':
 
-    exp_name = '0107-206-upsample-640-196'
+    exp_name = '0111-212-640x640-196'
 
     root = {'word': ['/raid_han/signDataProcess/capg-csl-dataset/capg-csl-1-100'], 'train': ['liya'], 'test': ['maodonglai']}
     save_model = f'logdir/train_{root["train"][0]}/{exp_name}'

@@ -33,14 +33,14 @@ def pose_filtering(video_path):
 
     start_index = 0
     cur_img = frame_paths[0]
-    cur_pose = json.load(open(cur_img.replace('rgb-240x240', 'openpose-res').replace('.jpg', '_keypoints.json'), 'r'))['people'][0]['pose_keypoints_2d']
+    cur_pose = json.load(open(cur_img.replace('rgb-640x640', 'openpose-res').replace('.jpg', '_keypoints.json'), 'r'))['people'][0]['pose_keypoints_2d']
     start_left_wrist_x = cur_pose[4*3]
     start_left_wrist_y = cur_pose[4*3+1]
     start_right_wrist_x = cur_pose[7*3]
     start_right_wrist_y = cur_pose[7*3+1]
     for img_index in range(1, len(frame_paths)):
         cur_img = frame_paths[img_index]
-        cur_pose = json.load(open(cur_img.replace('rgb-240x240', 'openpose-res').replace('.jpg', '_keypoints.json'), 'r'))['people'][0]['pose_keypoints_2d']
+        cur_pose = json.load(open(cur_img.replace('rgb-640x640', 'openpose-res').replace('.jpg', '_keypoints.json'), 'r'))['people'][0]['pose_keypoints_2d']
         left_wrist_x = cur_pose[4*3]
         left_wrist_y = cur_pose[4*3+1]
         right_wrist_x = cur_pose[7*3]
@@ -55,14 +55,14 @@ def pose_filtering(video_path):
             break
     end_index = len(frame_paths) - 1
     cur_img = frame_paths[end_index]
-    cur_pose = json.load(open(cur_img.replace('rgb-240x240', 'openpose-res').replace('.jpg', '_keypoints.json'), 'r'))['people'][0]['pose_keypoints_2d']
+    cur_pose = json.load(open(cur_img.replace('rgb-640x640', 'openpose-res').replace('.jpg', '_keypoints.json'), 'r'))['people'][0]['pose_keypoints_2d']
     start_left_wrist_x = cur_pose[4*3]
     start_left_wrist_y = cur_pose[4*3+1]
     start_right_wrist_x = cur_pose[7*3]
     start_right_wrist_y = cur_pose[7*3+1]
     for img_index in range(end_index, -1, -1):
         cur_img = frame_paths[img_index]
-        cur_pose = json.load(open(cur_img.replace('rgb-240x240', 'openpose-res').replace('.jpg', '_keypoints.json'), 'r'))['people'][0]['pose_keypoints_2d']
+        cur_pose = json.load(open(cur_img.replace('rgb-640x640', 'openpose-res').replace('.jpg', '_keypoints.json'), 'r'))['people'][0]['pose_keypoints_2d']
         left_wrist_x = cur_pose[4*3]
         left_wrist_y = cur_pose[4*3+1]
         right_wrist_x = cur_pose[7*3]
@@ -80,7 +80,7 @@ def pose_filtering(video_path):
 
 def get_pose(frame_paths):
 
-    pose_path = frame_paths[0].replace('rgb-240x240', 'openpose-res').replace('.jpg', '_keypoints.json')
+    pose_path = frame_paths[0].replace('rgb-640x640', 'openpose-res').replace('.jpg', '_keypoints.json')
     pose = json.load(open(pose_path, 'r'))['people'][0]
     shoudler = (pose['pose_keypoints_2d'][2*3] - pose['pose_keypoints_2d'][5*3])**2
     shoudler += (pose['pose_keypoints_2d'][2*3+1] - pose['pose_keypoints_2d'][5*3+1])**2
@@ -90,7 +90,7 @@ def get_pose(frame_paths):
     center = torch.tensor([center_x, center_y])
     poses = []
     for poses_idx in range(len(frame_paths)):
-        pose_path = frame_paths[poses_idx].replace('rgb-240x240', 'openpose-res').replace('.jpg', '_keypoints.json')
+        pose_path = frame_paths[poses_idx].replace('rgb-640x640', 'openpose-res').replace('.jpg', '_keypoints.json')
         pose = json.load(open(pose_path, 'r'))['people'][0]
         pose_keypoints_2d = torch.tensor(pose['pose_keypoints_2d']).reshape(-1, 3)[:, :2].reshape(-1)
         face_keypoints_2d = torch.tensor(pose['face_keypoints_2d']).reshape(-1, 3)[:, :2].reshape(-1)
@@ -221,7 +221,7 @@ def make_dataset(split, root, num_classes,
 
     i = 0
     for vid_root in vid_root_list:
-        for path in sorted(glob(f"{vid_root}/rgb-240x240/*/*/*/camera_*")):
+        for path in sorted(glob(f"{vid_root}/rgb-640x640/*/*/*/camera_*")):
             if path[-8:-1] != 'camera_':
                 continue
             label, signer, record_time, view = path.split('/')[-4:]
